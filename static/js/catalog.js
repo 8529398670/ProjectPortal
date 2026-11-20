@@ -1,0 +1,168 @@
+// The Catalog screen (admins): the projects the portal knows, each with the
+// admin key it uses there. Adding one with its key is all it takes for
+// everyone to see it and join it. app.js calls Catalog.init( me ) for admins;
+// the server checks again on every call.
+const Catalog = {
+  me: null,
+
+  async init( me ) {
+    if ( me.role !== "admin" ) return;
+    this.me = me;
+    Dom.show( Dom.get( "catalog-panel" ) , true );
+    Dom.onSubmit( Dom.get( "add-project-form" ) , this.onAdd.bind( this ) );
+    Pager.sortable( "catalog-table" , () => this.refresh() );
+    Pager.search( "catalog-table" , "catalog-search" , () => this.refresh() );
+    window.addEventListener( "nav" , () => {
+      if ( Nav.current() === "catalog" ) this.refresh();
+    } );
+    await this.refresh();
+  },
+
+  async onAdd( event ) {
+    event.preventDefault();
+    const form = event.target;
+    const value = ( id ) => Dom.get( id ).value.trim();
+    try {
+      const created = await Api.createProject( {
+        name: value( "project-name" ),
+        base_url: value( "project-url" ),
+        admin_key: value( "project-key" ),
+        description: value( "project-description" ),
+        icon: value( "project-icon" ),
+        color: Dom.get( "project-color-set" ).checked ? Dom.get( "project-color" ).value : "",
+        listed: Dom.get( "project-listed" ).checked,
+      } );
+      form.reset();
+      Dom.get( "project-listed" ).checked = true;
+      Undo.saved( form );
+      Dom.toast( I18n.get( "catalog.added" ).replace( "{name}" , () => created.project.name ) , "ok" );
+      await this.refresh();
+      if ( typeof Access !== "undefined" ) await Access.fillProjects();
+    } catch ( error ) {
+      App.showError( error.message );
+    }
+  },
+
+  keyBadge( project ) {
+    const tones = { ok: "success" , invalid: "danger" , not_admin: "warning" , missing: "secondary" };
+    const status = project.key_set ? project.key_status || "ok" : "missing";
+    return Dom.badge( I18n.get( "catalog.key_" + status ) , tones[ status ] || "secondary" );
+  },
+
+  healthBadge( project ) {
+    if ( !project.health ) return Dom.badge( I18n.get( "catalog.health_unknown" ) , "secondary" );
+    const badge = Dom.badge( I18n.get( "catalog.health_" + project.health ) , project.health === "up" ? "success" : "danger" );
+    if ( project.check_note ) badge.title = project.check_note;
+    return badge;
+  },
+
+  async refresh() {
+    const body = Dom.get( "catalog-table" ).querySelector( "tbody" );
+    await Pager.load( "catalog-table" , "projects" , ( offset ) => Api.listCatalog( offset , Pager.params( "catalog-table" ) ) , ( project ) => {
+      const name = Dom.el( "div" , { class: "d-flex align-items-center gap-2" , children: [
+        Projects.icon( project ),
+        Dom.el( "div" , { children: [
+          Dom.el( "div" , { class: "fw-semibold" , text: project.name } ),
+          project.listed ? null : Dom.el( "div" , { class: "small text-body-secondary" , text: I18n.get( "catalog.hidden" ) } ),
+        ].filter( Boolean ) } ),
+      ] } );
+      const link = Dom.el( "a" , { class: "text-break" , text: project.base_url , attrs: { href: project.base_url , target: "_blank" , rel: "noopener noreferrer" } } );
+      // Why the last check was unhappy, under the status it explains.
+      const note = project.check_note ? Dom.el( "div" , { class: "small text-body-secondary text-break" , text: project.check_note } ) : null;
+      const down = project.health === "down";
+      body.appendChild( Dom.el( "tr" , { children: [
+        Dom.el( "td" , { children: [ name ] } ),
+        Dom.el( "td" , { children: [ link ] } ),
+        Dom.el( "td" , { children: [ this.keyBadge( project ) , down ? null : note ].filter( Boolean ) } ),
+        Dom.el( "td" , { children: [ this.healthBadge( project ) , down ? note : null , Dom.el( "div" , { class: "small text-body-secondary" , children: [ Dom.when( project.checked_at , I18n.get( "catalog.never_checked" ) ) ] } ) ].filter( Boolean ) } ),
+        Dom.el( "td" , { text: String( project.members ) } ),
+        Dom.el( "td" , { children: [ this.actions( project ) ] } ),
+      ] } ) );
+    } );
+  },
+
+  actions( project ) {
+    const button = ( key , handler , danger ) => Dom.el( "button" , {
+      class: "btn btn-sm " + ( danger ? "btn-outline-danger" : "btn-outline-secondary" ),
+      attrs: { type: "button" },
+      text: I18n.get( key ),
+      on: { click: handler },
+    } );
+    return Dom.rowActions( project.name , [
+      button( "catalog.check_button" , () => this.onCheck( project ) ),
+      button( "catalog.access_button" , () => Access.showFor( project.id ) ),
+      button( "catalog.edit_button" , () => this.onEdit( project ) ),
+      button( "catalog.key_button" , () => this.onKey( project ) ),
+      button( "catalog.delete_button" , () => this.onDelete( project ) , true ),
+    ] );
+  },
+
+  async onCheck( project ) {
+    try {
+      const checked = await Api.checkProject( project.id );
+      const status = checked.project.health === "up" && checked.project.key_status === "ok" ? "catalog.check_ok" : "catalog.check_problem";
+      Dom.toast( I18n.get( status ).replace( "{name}" , () => project.name ) , status === "catalog.check_ok" ? "ok" : "error" );
+      await this.refresh();
+    } catch ( error ) { App.showError( error.message ); }
+  },
+
+  fields( project ) {
+    return {
+      name: project.name , base_url: project.base_url , description: project.description ,
+      icon: project.icon , color: project.color , listed: project.listed ,
+    };
+  },
+
+  async onEdit( project ) {
+    const before = this.fields( project );
+    const saved = await Dom.form( {
+      title: I18n.get( "catalog.edit_heading" ).replace( "{name}" , () => project.name ),
+      fields: [
+        { name: "name" , label: I18n.get( "catalog.name_label" ) , value: before.name , required: true , maxLength: 80 },
+        { name: "base_url" , type: "url" , label: I18n.get( "catalog.url_label" ) , value: before.base_url , required: true , maxLength: 300 , help: I18n.get( "catalog.url_change_help" ) },
+        { name: "description" , label: I18n.get( "catalog.description_label" ) , value: before.description , maxLength: 500 },
+        { name: "icon" , label: I18n.get( "catalog.icon_label" ) , value: before.icon , maxLength: 40 , help: I18n.get( "catalog.icon_help" ) },
+        { name: "color" , label: I18n.get( "catalog.color_label" ) , value: before.color , maxLength: 7 , placeholder: "#0d6efd" },
+        { name: "listed" , type: "checkbox" , label: I18n.get( "catalog.listed_label" ) , value: before.listed },
+      ],
+      save: ( values ) => Api.editProject( project.id , values ),
+    } );
+    if ( saved === null ) return;
+    if ( saved.keys_dropped ) Dom.toast( I18n.get( "catalog.keys_dropped" ) , "error" );
+    // A changed address dropped the keys, which undo cannot bring back, so
+    // only an edit that kept them is undoable.
+    if ( !saved.keys_dropped ) {
+      const after = this.fields( saved.project );
+      Undo.record( {
+        label: I18n.get( "catalog.undo_edit" ),
+        undo: async () => { await Api.editProject( project.id , before ); await this.refresh(); },
+        redo: async () => { await Api.editProject( project.id , after ); await this.refresh(); },
+      } );
+    }
+    await this.refresh();
+  },
+
+  async onKey( project ) {
+    const saved = await Dom.form( {
+      title: I18n.get( "catalog.key_heading" ).replace( "{name}" , () => project.name ),
+      fields: [ { name: "admin_key" , type: "password" , required: true , maxLength: 400 ,
+        label: I18n.get( "catalog.key_label" ) , help: I18n.get( "catalog.key_help" ) } ],
+      save: ( values ) => Api.setProjectKey( project.id , values.admin_key ),
+    } );
+    if ( saved === null ) return;
+    Dom.toast( I18n.get( "catalog.key_saved" ) , "ok" );
+    await this.refresh();
+  },
+
+  async onDelete( project ) {
+    try {
+      await Undo.run( {
+        label: I18n.get( "catalog.undo_delete" ).replace( "{name}" , () => project.name ),
+        toast: true,
+        do: async () => { await Api.deleteProject( project.id ); await this.refresh(); },
+        undo: async () => { await Api.restoreProject( project.id ); await this.refresh(); },
+      } );
+      if ( typeof Access !== "undefined" ) await Access.fillProjects();
+    } catch ( error ) { App.showError( error.message ); }
+  },
+};

@@ -1,0 +1,561 @@
+package routes
+
+import (
+	errors "errors"
+	strings "strings"
+	time "time"
+
+	fiber "github.com/gofiber/fiber/v3"
+
+	db "projectportal/server/db"
+	logs "projectportal/server/logs"
+	models "projectportal/server/models"
+	portal "projectportal/server/portal"
+	remote "projectportal/server/remote"
+	security "projectportal/server/security"
+)
+
+// The admin side of the catalog: adding projects with the admin key the
+// portal uses on each, checking them, deciding who may use which, and
+// matching portal accounts to accounts a project already had.
+//
+// Routes that store a key are browser-only (SESSION_ONLY), like every route
+// here that makes a credential: a leaked portal key must not be able to swap
+// in keys, or change an address so that stored keys are sent somewhere else
+// (EditProject drops them when the address changes, for the same reason).
+
+// catalogRow is a project as the Catalog screen lists it. Never the key.
+type catalogRow struct {
+	ID              uint64     `json:"id"`
+	Name            string     `json:"name"`
+	Description     string     `json:"description"`
+	BaseURL         string     `json:"base_url"`
+	Icon            string     `json:"icon"`
+	Color           string     `json:"color"`
+	Listed          bool       `json:"listed"`
+	KeySet          bool       `json:"key_set" jsonschema_description:"Whether the portal holds an admin key for it."`
+	KeyStatus       string     `json:"key_status" jsonschema_description:"ok, invalid, not_admin or missing, from the last check."`
+	Health          string     `json:"health" jsonschema_description:"up, down, or empty before the first check."`
+	CheckNote       string     `json:"check_note"`
+	CheckedAt       *time.Time `json:"checked_at"`
+	Members         int        `json:"members"`
+	ExcludedUserIDs []uint64   `json:"excluded_user_ids" jsonschema_description:"People it is kept from."`
+	Position        int        `json:"position"`
+	CreatedAt       time.Time  `json:"created_at"`
+}
+
+func ( catalogRow ) APIName() ( name string ) { name = "CatalogProject"; return }
+
+func newCatalogRow( project *models.Project , members int ) ( row catalogRow ) {
+	row = catalogRow{
+		ID: project.ID , Name: project.Name , Description: project.Description , BaseURL: project.BaseURL ,
+		Icon: project.Icon , Color: project.Color , Listed: project.Listed , KeySet: project.AdminKey != "" ,
+		KeyStatus: project.KeyStatus , Health: project.Health , CheckNote: project.CheckNote ,
+		CheckedAt: project.CheckedAt , Members: members , ExcludedUserIDs: project.ExcludedUserIDs ,
+		Position: project.Position , CreatedAt: project.CreatedAt ,
+	}
+	if row.ExcludedUserIDs == nil { row.ExcludedUserIDs = []uint64{} }
+	return
+}
+
+type listCatalogRequest struct {
+	Page
+	Q    string `json:"q,omitempty" query:"q" jsonschema_description:"Keep projects whose name or address contains this, in any case."`
+	Sort string `json:"sort,omitempty" query:"sort" jsonschema:"enum=name,enum=base_url,enum=health,enum=members,enum=position" jsonschema_description:"Field to sort by. Default the catalog's order."`
+	Direction
+}
+
+type listCatalogReply struct {
+	Projects []catalogRow `json:"projects"`
+	Paged
+}
+
+// listCatalog is every project, hidden ones included.
+//
+// @route("GET /api/admin/projects", summary="The catalog",
+//     tag="Catalog", role=ADMIN,
+//     description="Every project in the portal, a page at a time, with whether its admin key works, "
+//         "whether it is up, and how many people are on it.",
+//     mcp="admin_list_catalog", read_only=True,
+// )
+func ( handlers *Handlers ) listCatalog( c fiber.Ctx , in *listCatalogRequest ) ( reply *listCatalogReply , err error ) {
+	projects , err := models.ListProjects( handlers.Store )
+	if err != nil { return }
+	counts , err := models.MemberCounts( handlers.Store )
+	if err != nil { return }
+	query := strings.ToLower( strings.TrimSpace( in.Q ) )
+	rows := []catalogRow{}
+	for _ , project := range projects {
+		if query != "" && strings.Contains( strings.ToLower( project.Name + " " + project.BaseURL ) , query ) == false { continue }
+		rows = append( rows , newCatalogRow( project , counts[ project.ID ] ) )
+	}
+	reply = &listCatalogReply{}
+	reply.Projects , reply.Paged = sortedPage( rows , in.Sort , in.Direction , in.Page )
+	return
+}
+
+type projectFieldsRequest struct {
+	Name        string `json:"name" jsonschema:"minLength=1,maxLength=80" error:"name must be 1-80 characters"`
+	Description string `json:"description,omitempty" jsonschema:"maxLength=500" error:"description must be at most 500 characters"`
+	BaseURL     string `json:"base_url" jsonschema:"minLength=8,maxLength=300" jsonschema_description:"Where the project is served, e.g. https://todo.example.com: what people's browsers open." error:"base_url must be 8-300 characters"`
+	Icon        string `json:"icon,omitempty" jsonschema:"maxLength=40,pattern=^[a-z0-9-]*$" jsonschema_description:"A Bootstrap Icons name without bi-, e.g. kanban." error:"icon must be a Bootstrap Icons name"`
+	Color       string `json:"color,omitempty" jsonschema:"maxLength=7,pattern=^(#[0-9a-fA-F]{6})?$" jsonschema_description:"#rrggbb." error:"color must be #rrggbb"`
+	Listed      bool   `json:"listed" jsonschema_description:"Whether people see it. Off, only admins do."`
+}
+
+func ( fields *projectFieldsRequest ) model() ( result models.ProjectFields ) {
+	result = models.ProjectFields{
+		Name: fields.Name , Description: fields.Description , BaseURL: fields.BaseURL ,
+		Icon: fields.Icon , Color: fields.Color , Listed: fields.Listed ,
+	}
+	return
+}
+
+type createProjectRequest struct {
+	projectFieldsRequest
+	AdminKey string `json:"admin_key,omitempty" jsonschema:"maxLength=400" jsonschema_description:"An admin API key on that project. Checked before it is kept." error:"admin_key must be at most 400 characters"`
+}
+
+type catalogReply struct {
+	Project catalogRow `json:"project"`
+}
+
+func projectFieldsRefusal( cause error ) ( refused error ) {
+	switch {
+	case errors.Is( cause , models.ErrBadBaseURL ) , errors.Is( cause , models.ErrBadProjectName ):
+		refused = refuse( fiber.StatusBadRequest , cause.Error() )
+	case errors.Is( cause , db.ErrNotFound ):
+		refused = refuse( fiber.StatusNotFound , "no such project" )
+	default:
+		refused = cause
+	}
+	return
+}
+
+// checkAdminKey asks the project who key is, and refuses unless it is an
+// admin there. The key itself never goes into an error.
+func ( handlers *Handlers ) checkAdminKey( name string , base_url string , key string ) ( sealed string , refused error ) {
+	ctx , cancel := remoteContext()
+	defer cancel()
+	me , remote_err := remote.CheckKey( ctx , base_url , key )
+	if remote_err != nil {
+		refused = refuse( fiber.StatusBadGateway , name + ": " + remote_err.Error() )
+		return
+	}
+	if me.Role != models.RoleAdmin {
+		refused = refuse( fiber.StatusBadRequest , name + ": that key is a user key there; the portal needs an admin key" )
+		return
+	}
+	sealed , refused = models.SealRemoteKey( handlers.cfg().SecretKey , key )
+	return
+}
+
+// createProject adds a project to the catalog.
+//
+// @route("POST /api/admin/projects", summary="Add a project",
+//     tag="Catalog", role=ADMIN, access=SESSION_ONLY, status=201, errors=(502,),
+//     description="Add a project to the catalog. With admin_key (an admin API key there), people can "
+//         "join it straight away; the key is checked first and never shown again.",
+// )
+func ( handlers *Handlers ) createProject( c fiber.Ctx , in *createProjectRequest ) ( reply *catalogReply , err error ) {
+	fields := in.model()
+	base_url , url_err := models.NormalizeBaseURL( fields.BaseURL )
+	if url_err != nil { return nil , projectFieldsRefusal( url_err ) }
+	sealed := ""
+	if key := strings.TrimSpace( in.AdminKey ); key != "" {
+		if sealed , err = handlers.checkAdminKey( fields.Name , base_url , key ); err != nil { return }
+	}
+	project , create_err := models.CreateProject( handlers.Store , fields , sealed )
+	if create_err != nil { return nil , projectFieldsRefusal( create_err ) }
+	handlers.audit( c , logs.KindAdmin , "project added" , fiber.Map{ "project_id": project.ID , "name": project.Name , "base_url": project.BaseURL } )
+	if checked , check_err := portal.Check( handlers.Store , handlers.cfg().SecretKey , project ); check_err == nil { project = checked }
+	reply = &catalogReply{ Project: newCatalogRow( project , 0 ) }
+	return
+}
+
+type editProjectRequest struct {
+	projectIDPath
+	projectFieldsRequest
+}
+
+type editProjectReply struct {
+	Project catalogRow `json:"project"`
+	KeysDropped bool   `json:"keys_dropped" jsonschema_description:"The address changed, so the admin key and everyone's own keys for the old one were dropped."`
+}
+
+// editProject changes a project's details. A new address drops every key the
+// portal held for the old one.
+//
+// @route("POST /api/admin/projects/{project_id}/edit", summary="Change a project",
+//     tag="Catalog", role=ADMIN, access=SESSION_ONLY, errors=(404,),
+//     description="Change a project's name, description, address, icon, color or whether it is listed. "
+//         "A new address drops the admin key and everyone's own keys for the old one: give the key again.",
+// )
+func ( handlers *Handlers ) editProject( c fiber.Ctx , in *editProjectRequest ) ( reply *editProjectReply , err error ) {
+	project , moved , edit_err := models.EditProject( handlers.Store , in.ProjectID , in.model() )
+	if edit_err != nil { return nil , projectFieldsRefusal( edit_err ) }
+	handlers.audit( c , logs.KindAdmin , "project changed" , fiber.Map{ "project_id": project.ID , "name": project.Name , "keys_dropped": moved } )
+	counts , err := models.MemberCounts( handlers.Store )
+	if err != nil { return }
+	reply = &editProjectReply{ Project: newCatalogRow( project , counts[ project.ID ] ) , KeysDropped: moved }
+	return
+}
+
+type projectKeyRequest struct {
+	projectIDPath
+	AdminKey string `json:"admin_key" jsonschema:"minLength=8,maxLength=400" jsonschema_description:"An admin API key on that project." error:"admin_key must be 8-400 characters"`
+}
+
+// setProjectKey gives the portal a new admin key for a project, checked first.
+//
+// @route("POST /api/admin/projects/{project_id}/key", summary="Set a project's admin key",
+//     tag="Catalog", role=ADMIN, access=SESSION_ONLY, errors=(404, 502),
+//     description="Replace the admin API key the portal uses on a project. It must be an admin key "
+//         "there. Revoking the old one on the project signs out everyone it signed in.",
+// )
+func ( handlers *Handlers ) setProjectKey( c fiber.Ctx , in *projectKeyRequest ) ( reply *catalogReply , err error ) {
+	project , get_err := models.GetProject( handlers.Store , in.ProjectID )
+	if get_err != nil { return nil , projectFieldsRefusal( get_err ) }
+	sealed , err := handlers.checkAdminKey( project.Name , project.BaseURL , strings.TrimSpace( in.AdminKey ) )
+	if err != nil { return }
+	if project , err = models.SetProjectKey( handlers.Store , in.ProjectID , sealed ); err != nil { return nil , projectFieldsRefusal( err ) }
+	handlers.audit( c , logs.KindAdmin , "project key set" , fiber.Map{ "project_id": project.ID } )
+	reply , err = handlers.catalogReplyFor( project )
+	return
+}
+
+func ( handlers *Handlers ) catalogReplyFor( project *models.Project ) ( reply *catalogReply , err error ) {
+	counts , err := models.MemberCounts( handlers.Store )
+	if err != nil { return }
+	reply = &catalogReply{ Project: newCatalogRow( project , counts[ project.ID ] ) }
+	return
+}
+
+// checkProject is Check now: is it up, does its key still work.
+//
+// @route("POST /api/admin/projects/{project_id}/check", summary="Check a project",
+//     tag="Catalog", role=ADMIN, errors=(404,),
+//     description="Ask the project now whether it is up and whether the portal's admin key still works "
+//         "there. The project-health job does this every 5 minutes.",
+//     mcp="admin_check_project",
+// )
+func ( handlers *Handlers ) checkProject( c fiber.Ctx , in *projectIDPath ) ( reply *catalogReply , err error ) {
+	project , get_err := models.GetProject( handlers.Store , in.ProjectID )
+	if get_err != nil { return nil , projectFieldsRefusal( get_err ) }
+	if project , err = portal.Check( handlers.Store , handlers.cfg().SecretKey , project ); err != nil { return }
+	reply , err = handlers.catalogReplyFor( project )
+	return
+}
+
+// deleteProject takes a project out of the catalog. Undoable for 10
+// minutes; nothing on the project itself changes.
+//
+// @route("POST /api/admin/projects/{project_id}/delete", summary="Delete a project",
+//     tag="Catalog", role=ADMIN, errors=(404,),
+//     description="Take a project out of the portal, with its key and everyone's membership of it. "
+//         "Accounts on the project itself stay. admin_restore_project undoes it within 10 minutes.",
+//     mcp="admin_delete_project", destructive=True,
+// )
+func ( handlers *Handlers ) deleteProject( c fiber.Ctx , in *projectIDPath ) ( reply *okReply , err error ) {
+	if delete_err := models.DeleteProject( handlers.Store , in.ProjectID , security.UserFrom( c ).ID ); delete_err != nil {
+		return nil , projectFieldsRefusal( delete_err )
+	}
+	handlers.audit( c , logs.KindAdmin , "project deleted" , fiber.Map{ "project_id": in.ProjectID } )
+	reply = &okReply{ Ok: true }
+	return
+}
+
+// restoreProject is Undo for deleteProject.
+//
+// @route("POST /api/admin/projects/{project_id}/restore", summary="Undo deleting a project",
+//     tag="Catalog", role=ADMIN, errors=(404, 409),
+//     description="Put back a project deleted in the last 10 minutes.",
+//     mcp="admin_restore_project",
+// )
+func ( handlers *Handlers ) restoreProject( c fiber.Ctx , in *projectIDPath ) ( reply *okReply , err error ) {
+	if restore_err := models.RestoreProject( handlers.Store , in.ProjectID , security.UserFrom( c ).ID ); restore_err != nil {
+		return nil , restoreRefusal( restore_err )
+	}
+	handlers.audit( c , logs.KindAdmin , "project restored" , fiber.Map{ "project_id": in.ProjectID } )
+	reply = &okReply{ Ok: true }
+	return
+}
+
+type orderProjectsRequest struct {
+	ProjectIDs []uint64 `json:"project_ids" jsonschema:"minItems=1,maxItems=1000" jsonschema_description:"Project ids in the order people should see them." error:"project_ids must list 1-1000 ids"`
+}
+
+// orderProjects is the catalog's order, which everyone's list follows.
+//
+// @route("POST /api/admin/projects/order", summary="Order the catalog",
+//     tag="Catalog", role=ADMIN,
+//     description="Put projects in this order everywhere they are listed. Ids left out follow.",
+//     mcp="admin_order_catalog",
+// )
+func ( handlers *Handlers ) orderProjects( c fiber.Ctx , in *orderProjectsRequest ) ( reply *okReply , err error ) {
+	if err = models.OrderProjects( handlers.Store , in.ProjectIDs ); err != nil { return }
+	handlers.audit( c , logs.KindAdmin , "catalog reordered" , fiber.Map{ "projects": len( in.ProjectIDs ) } )
+	reply = &okReply{ Ok: true }
+	return
+}
+
+// accessRow is one person and one project, as the Access screen shows it.
+type accessRow struct {
+	UserID       uint64 `json:"user_id"`
+	DisplayName  string `json:"display_name"`
+	Role         string `json:"role"`
+	Disabled     bool   `json:"disabled"`
+	Allowed      bool   `json:"allowed" jsonschema_description:"Whether they may see and join it. Admins always may."`
+	Member       bool   `json:"member"`
+	Via          string `json:"via"`
+	RemoteUserID uint64 `json:"remote_user_id"`
+	RemoteName   string `json:"remote_name"`
+	OwnKey       bool   `json:"own_key"`
+}
+
+func ( accessRow ) APIName() ( name string ) { name = "ProjectAccess"; return }
+
+type projectAccessRequest struct {
+	projectIDPath
+	Page
+	Q    string `json:"q,omitempty" query:"q" jsonschema_description:"Keep people whose name contains this, in any case."`
+	Sort string `json:"sort,omitempty" query:"sort" jsonschema:"enum=display_name,enum=allowed,enum=member" jsonschema_description:"Field to sort by."`
+	Direction
+}
+
+type projectAccessReply struct {
+	Rows []accessRow `json:"rows"`
+	Paged
+}
+
+// projectAccess is everyone in the portal against one project.
+//
+// @route("GET /api/admin/projects/{project_id}/access", summary="Who may use a project",
+//     tag="Catalog", role=ADMIN, errors=(404,),
+//     description="Every account here, a page at a time, with whether it may use the project and "
+//         "whether it is on it.",
+//     mcp="admin_project_access", read_only=True,
+// )
+func ( handlers *Handlers ) projectAccess( c fiber.Ctx , in *projectAccessRequest ) ( reply *projectAccessReply , err error ) {
+	project , get_err := models.GetProject( handlers.Store , in.ProjectID )
+	if get_err != nil { return nil , projectFieldsRefusal( get_err ) }
+	users , err := models.ListUsers( handlers.Store )
+	if err != nil { return }
+	members , err := models.MembersOf( handlers.Store , project.ID )
+	if err != nil { return }
+	query := strings.ToLower( strings.TrimSpace( in.Q ) )
+	rows := []accessRow{}
+	for _ , user := range users {
+		if query != "" && strings.Contains( strings.ToLower( user.DisplayName ) , query ) == false { continue }
+		row := accessRow{
+			UserID: user.ID , DisplayName: user.DisplayName , Role: user.Role , Disabled: user.Disabled() ,
+			Allowed: user.IsAdmin() || project.Excludes( user.ID ) == false ,
+		}
+		if membership := members[ user.ID ]; membership != nil {
+			row.Member , row.Via , row.RemoteUserID = true , membership.Via , membership.RemoteUserID
+			row.RemoteName , row.OwnKey = membership.RemoteName , membership.PersonalKey != ""
+		}
+		rows = append( rows , row )
+	}
+	reply = &projectAccessReply{}
+	reply.Rows , reply.Paged = sortedPage( rows , in.Sort , in.Direction , in.Page )
+	return
+}
+
+type setAccessRequest struct {
+	projectIDPath
+	UserID  uint64 `json:"user_id" path:"user_id" jsonschema:"minimum=1" jsonschema_description:"The account's id here, from admin_list_users." error:"invalid user id"`
+	Allowed bool   `json:"allowed" jsonschema_description:"false keeps the project from them: it leaves their list, and the portal will not sign them into it."`
+}
+
+type setAccessReply struct {
+	Ok      bool `json:"ok"`
+	Allowed bool `json:"allowed"`
+}
+
+// setAccess lets one person use a project, or keeps it from them. Projects
+// are open to everyone by default; this is the exception list.
+//
+// @route("POST /api/admin/projects/{project_id}/access/{user_id}", summary="Let someone use a project, or not",
+//     bulk=True,
+//     tag="Catalog", role=ADMIN, errors=(404,),
+//     description="allowed false keeps a listed project from one person: it leaves their list and the "
+//         "portal stops signing them in. Their account on the project itself stays. Admins always see "
+//         "everything.",
+//     mcp="admin_set_project_access",
+// )
+func ( handlers *Handlers ) setAccess( c fiber.Ctx , in *setAccessRequest ) ( reply *setAccessReply , err error ) {
+	if _ , get_err := models.GetUser( handlers.Store , in.UserID ); get_err != nil {
+		err = refuse( fiber.StatusNotFound , "no such user" )
+		return
+	}
+	if _ , set_err := models.SetUserExcluded( handlers.Store , in.ProjectID , in.UserID , in.Allowed == false ); set_err != nil {
+		return nil , projectFieldsRefusal( set_err )
+	}
+	handlers.audit( c , logs.KindAdmin , "project access changed" , fiber.Map{ "project_id": in.ProjectID , "user_id": in.UserID , "allowed": in.Allowed } )
+	reply = &setAccessReply{ Ok: true , Allowed: in.Allowed }
+	return
+}
+
+type grantRequest struct {
+	projectIDPath
+	UserID uint64 `json:"user_id" path:"user_id" jsonschema:"minimum=1" jsonschema_description:"The account's id here." error:"invalid user id"`
+}
+
+// grantProject is joining on someone's behalf: their account on the project
+// is made now, and they sign in from their own list.
+//
+// @route("POST /api/admin/projects/{project_id}/grant/{user_id}", summary="Put someone on a project",
+//     tag="Catalog", role=ADMIN, errors=(404, 409, 502),
+//     description="Make someone an account on the project now, as if they had joined. They sign in from "
+//         "their own list; no link is handed to you.",
+//     mcp="admin_grant_project",
+// )
+func ( handlers *Handlers ) grantProject( c fiber.Ctx , in *grantRequest ) ( reply *okReply , err error ) {
+	project , get_err := models.GetProject( handlers.Store , in.ProjectID )
+	if get_err != nil { return nil , projectFieldsRefusal( get_err ) }
+	user , user_err := models.GetUser( handlers.Store , in.UserID )
+	if user_err != nil {
+		err = refuse( fiber.StatusNotFound , "no such user" )
+		return
+	}
+	if user.IsAdmin() == false && project.Excludes( user.ID ) {
+		err = refuse( fiber.StatusConflict , "this project is kept from them: allow it first" )
+		return
+	}
+	if _ , err = handlers.joinAs( c , project , user , false ); err != nil { return }
+	reply = &okReply{ Ok: true }
+	return
+}
+
+type remoteUsersRequest struct {
+	projectIDPath
+	Q      string `json:"q,omitempty" query:"q" jsonschema_description:"Keep accounts whose name contains this."`
+	Offset int    `json:"offset,omitempty" query:"offset" jsonschema:"minimum=0" jsonschema_description:"From the previous page's next." error:"offset must be 0 or more"`
+}
+
+type remoteUser struct {
+	ID          uint64 `json:"id"`
+	DisplayName string `json:"display_name"`
+	Role        string `json:"role"`
+	Disabled    bool   `json:"disabled"`
+	Owner       bool   `json:"owner"`
+}
+
+func ( remoteUser ) APIName() ( name string ) { name = "RemoteUser"; return }
+
+type remoteUsersReply struct {
+	Users []remoteUser `json:"users"`
+	Paged
+}
+
+// remoteUsers is the accounts the project itself has, to match someone here
+// to the one they already use there.
+//
+// @route("GET /api/admin/projects/{project_id}/remote-users", summary="A project's own accounts",
+//     tag="Catalog", role=ADMIN, errors=(404, 409, 502),
+//     description="The accounts on the project itself, as its admin key sees them, 200 at a time.",
+//     mcp="admin_list_remote_users", read_only=True,
+// )
+func ( handlers *Handlers ) remoteUsers( c fiber.Ctx , in *remoteUsersRequest ) ( reply *remoteUsersReply , err error ) {
+	project , get_err := models.GetProject( handlers.Store , in.ProjectID )
+	if get_err != nil { return nil , projectFieldsRefusal( get_err ) }
+	key , refused := handlers.adminKeyOf( project )
+	if refused != nil { return nil , refused }
+	ctx , cancel := remoteContext()
+	defer cancel()
+	users , next , total , remote_err := remote.ListUsers( ctx , project.BaseURL , key , in.Q , in.Offset )
+	if remote_err != nil { return nil , handlers.remoteRefusal( project , remote_err , true ) }
+	reply = &remoteUsersReply{ Users: []remoteUser{} , Paged: Paged{ Next: next , Total: total } }
+	for _ , user := range users {
+		reply.Users = append( reply.Users , remoteUser{ ID: user.ID , DisplayName: user.DisplayName , Role: user.Role , Disabled: user.Disabled , Owner: user.Owner } )
+	}
+	return
+}
+
+type linkRemoteRequest struct {
+	projectIDPath
+	UserID       uint64 `json:"user_id" path:"user_id" jsonschema:"minimum=1" jsonschema_description:"The account's id here." error:"invalid user id"`
+	RemoteUserID uint64 `json:"remote_user_id" jsonschema:"minimum=1" jsonschema_description:"Their account's id on the project, from admin_list_remote_users." error:"invalid remote user id"`
+}
+
+// linkRemote matches someone here to an account the project already had, so
+// opening it signs them into that one instead of a new one.
+//
+// @route("POST /api/admin/projects/{project_id}/link/{user_id}", summary="Match someone to their account on a project",
+//     tag="Catalog", role=ADMIN, errors=(404, 409, 502),
+//     description="Say which account on the project is theirs. Opening the project then signs them into "
+//         "it. The project's owner, and its admins unless the portal's key is the owner's, cannot be "
+//         "signed in this way: they attach their own key instead.",
+//     mcp="admin_link_remote_user",
+// )
+func ( handlers *Handlers ) linkRemote( c fiber.Ctx , in *linkRemoteRequest ) ( reply *okReply , err error ) {
+	project , get_err := models.GetProject( handlers.Store , in.ProjectID )
+	if get_err != nil { return nil , projectFieldsRefusal( get_err ) }
+	if _ , user_err := models.GetUser( handlers.Store , in.UserID ); user_err != nil {
+		err = refuse( fiber.StatusNotFound , "no such user" )
+		return
+	}
+	key , refused := handlers.adminKeyOf( project )
+	if refused != nil { return nil , refused }
+	found , err := handlers.findRemoteUser( project , key , in.RemoteUserID )
+	if err != nil { return }
+	if found.Owner {
+		err = refuse( fiber.StatusConflict , "that is the project's owner: nobody can make them a link from outside. They attach their own key instead" )
+		return
+	}
+	membership := models.Membership{
+		UserID: in.UserID , ProjectID: project.ID , RemoteUserID: found.ID , RemoteName: found.DisplayName ,
+		RemoteRole: found.Role , Via: models.ViaLinked ,
+	}
+	if existing , existing_err := models.GetMembership( handlers.Store , in.UserID , project.ID ); existing_err == nil && existing.Active() {
+		membership.PersonalKey = existing.PersonalKey
+	}
+	if _ , err = models.AddMembership( handlers.Store , membership , true ); err != nil { return }
+	handlers.audit( c , logs.KindAdmin , "project account linked" , fiber.Map{ "project_id": project.ID , "user_id": in.UserID , "remote_user_id": found.ID } )
+	reply = &okReply{ Ok: true }
+	return
+}
+
+// findRemoteUser looks an account up on the project, a page at a time.
+func ( handlers *Handlers ) findRemoteUser( project *models.Project , key string , remote_user_id uint64 ) ( found *remote.User , err error ) {
+	ctx , cancel := remoteContext()
+	defer cancel()
+	offset := 0
+	for range 50 {
+		users , next , _ , remote_err := remote.ListUsers( ctx , project.BaseURL , key , "" , offset )
+		if remote_err != nil { return nil , handlers.remoteRefusal( project , remote_err , true ) }
+		for index := range users {
+			if users[ index ].ID == remote_user_id { return &users[ index ] , nil }
+		}
+		if next == nil { break }
+		offset = *next
+	}
+	err = refuse( fiber.StatusNotFound , "the project has no such account" )
+	return
+}
+
+type removeMemberRequest struct {
+	projectIDPath
+	UserID uint64 `json:"user_id" path:"user_id" jsonschema:"minimum=1" jsonschema_description:"The account's id here." error:"invalid user id"`
+}
+
+// removeMember forgets which account on the project is someone's. Nothing
+// changes on the project itself.
+//
+// @route("POST /api/admin/projects/{project_id}/members/{user_id}/remove", summary="Take someone off a project here",
+//     tag="Catalog", role=ADMIN, errors=(404,),
+//     description="Forget someone's account on the project, and their own key for it. Their account on "
+//         "the project itself stays: disable it there to stop them signing in with what they already have.",
+//     mcp="admin_remove_project_member", destructive=True,
+// )
+func ( handlers *Handlers ) removeMember( c fiber.Ctx , in *removeMemberRequest ) ( reply *okReply , err error ) {
+	if _ , get_err := models.GetMembership( handlers.Store , in.UserID , in.ProjectID ); get_err != nil {
+		err = refuse( fiber.StatusNotFound , "they are not on this project" )
+		return
+	}
+	if err = models.RemoveMembership( handlers.Store , in.UserID , in.ProjectID ); err != nil { return }
+	handlers.audit( c , logs.KindAdmin , "project member removed" , fiber.Map{ "project_id": in.ProjectID , "user_id": in.UserID } )
+	reply = &okReply{ Ok: true }
+	return
+}
