@@ -3664,6 +3664,7 @@ One of these:
 | `created_at` | string (date-time) | yes |  |  |
 | `description` | string | yes |  |  |
 | `favorite` | boolean | yes |  |  |
+| `github_url` | string | yes |  | Where the project's code lives, or empty. |
 | `health` | string | yes |  | up, down, or empty before the first check. |
 | `icon` | string | yes |  |  |
 | `id` | integer | yes |  |  |

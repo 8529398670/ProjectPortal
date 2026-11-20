@@ -578,8 +578,15 @@ th[aria-sort="descending"] .th-sort::after { content: " \2193"; }
 
 /* A login link or API key, with its copy button. The value wraps rather
    than widening the page. */
-.link-box { display: flex; align-items: flex-start; gap: 0.5rem; }
-.link-box code { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; color: inherit; font-size: 0.85rem; }
+/* Phones: the link takes its own line and the buttons sit under it. Wider:
+   all on one line. The buttons never shrink, so their labels never wrap. */
+.link-box { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.5rem; }
+.link-box code { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; color: inherit; font-size: 0.85rem; }
+.link-box .btn { flex: 0 0 auto; white-space: nowrap; }
+@media (min-width: 576px) {
+  .link-box { flex-wrap: nowrap; }
+  .link-box code { flex-basis: auto; }
+}
 /* The MCP card: the setup keeps its line breaks but wraps long lines rather
    than scrolling sideways. */
 .mcp-snippet { flex: 1 1 auto; min-width: 0; margin: 0; padding: 0.75rem; border-radius: var(--bs-border-radius);

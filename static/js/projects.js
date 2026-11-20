@@ -1,5 +1,5 @@
 // The Projects screen: every project you may use, as tiles. The ones you are
-// on come first (starred ones first of those) with an Open button, then the
+// on come first (recently opened first, or by name) with an Open button, then the
 // ones you could join. Opening asks the portal for a fresh login link to that
 // project and goes there, which is how anyone signed out of a project gets
 // back in. app.js calls Projects.init( me ) once it knows who is signed in.
@@ -15,6 +15,13 @@ const Projects = {
     Dom.typed( Dom.get( "projects-search" ) , () => this.render() );
     Dom.get( "projects-tag" ).addEventListener( "change" , () => this.render() );
     Dom.get( "projects-favorites" ).addEventListener( "change" , () => this.render() );
+    // The sort is remembered in this browser only; nothing breaks without it.
+    const sort = Dom.get( "projects-sort" );
+    try { if ( localStorage.getItem( "projects-sort" ) === "name" ) sort.value = "name"; } catch ( error ) { /* storage off */ }
+    sort.addEventListener( "change" , () => {
+      try { localStorage.setItem( "projects-sort" , sort.value ); } catch ( error ) { /* storage off */ }
+      this.render();
+    } );
     // Back on the screen (from Catalog, say): the list may have changed.
     window.addEventListener( "nav" , () => {
       if ( Nav.current() === "projects" ) this.refresh();
@@ -58,8 +65,16 @@ const Projects = {
     return ( project.name + " " + project.description + " " + project.tags.join( " " ) ).toLowerCase().includes( query );
   },
 
+  // Recently opened first (never opened last, by name), or by name alone.
+  sorted( projects ) {
+    const byName = ( a , b ) => a.name.localeCompare( b.name , undefined , { sensitivity: "base" } );
+    if ( Dom.get( "projects-sort" ).value === "name" ) return projects.slice().sort( byName );
+    const opened = ( project ) => project.last_opened_at ? Date.parse( project.last_opened_at ) : 0;
+    return projects.slice().sort( ( a , b ) => ( opened( b ) - opened( a ) ) || byName( a , b ) );
+  },
+
   render() {
-    const shown = this.all.filter( ( project ) => this.matches( project ) );
+    const shown = this.sorted( this.all.filter( ( project ) => this.matches( project ) ) );
     const mine = shown.filter( ( project ) => project.member );
     const available = shown.filter( ( project ) => !project.member );
     Dom.swap( Dom.get( "my-projects" ) , ...mine.map( ( project ) => this.tile( project ) ) );
@@ -138,7 +153,7 @@ const Projects = {
       class: "btn btn-primary btn-sm",
       attrs: { type: "button" },
       children: [ Dom.el( "i" , { class: "bi bi-plus-lg me-1" , attrs: { "aria-hidden": "true" } } ) , Dom.el( "span" , { text: I18n.get( "projects.join_button" ) } ) ],
-      on: { click: ( event ) => this.go( event , () => Api.joinProject( project.id ) ) },
+      on: { click: ( event ) => this.go( event , () => Api.joinProject( project.id ) , event.ctrlKey || event.metaKey || event.shiftKey ) },
     } );
     if ( !project.ready ) {
       join.classList.add( "disabled" );
@@ -151,7 +166,7 @@ const Projects = {
       text: I18n.get( "projects.own_key_button" ),
       on: { click: () => this.onOwnKey( project ) },
     } );
-    return [ join , this.boardLink( project ) , extra ].filter( Boolean );
+    return [ join , this.boardLink( project ) , this.githubLink( project ) , extra ].filter( Boolean );
   },
 
   memberActions( project ) {
@@ -159,7 +174,7 @@ const Projects = {
       class: "btn btn-primary btn-sm",
       attrs: { type: "button" , title: I18n.get( "projects.open_hint" ) },
       children: [ Dom.el( "i" , { class: "bi bi-box-arrow-up-right me-1" , attrs: { "aria-hidden": "true" } } ) , Dom.el( "span" , { text: I18n.get( "projects.open_button" ) } ) ],
-      on: { click: ( event ) => this.go( event , () => Api.openProject( project.id ) ) },
+      on: { click: ( event ) => this.go( event , () => Api.openProject( project.id ) , true ) },
     } );
     const starLabel = I18n.get( project.favorite ? "projects.unstar" : "projects.star" );
     const star = Dom.el( "button" , {
@@ -177,7 +192,7 @@ const Projects = {
     ];
     const menu = Dom.rowMenu( project.name , items );
     menu.classList.add( "ms-auto" );
-    return [ open , this.boardLink( project ) , star , menu ].filter( Boolean );
+    return [ open , this.boardLink( project ) , this.githubLink( project ) , star , menu ].filter( Boolean );
   },
 
   // The project's TodoBoard board, view only, when an admin gave its link.
@@ -190,12 +205,22 @@ const Projects = {
     } );
   },
 
-  // Asks for a link and goes there. Ctrl/Cmd/middle-click opens it in a new
-  // tab, which has to be opened now, before the await, or the browser takes it
-  // for a popup.
-  async go( event , ask ) {
-    const newTab = event && ( event.ctrlKey || event.metaKey || event.shiftKey );
+  // Where the project's code lives, when an admin gave its link.
+  githubLink( project ) {
+    if ( !/^https?:\/\//.test( project.github_url || "" ) ) return null;
+    return Dom.el( "a" , {
+      class: "btn btn-outline-secondary btn-sm",
+      attrs: { href: project.github_url , target: "_blank" , rel: "noopener noreferrer" , title: I18n.get( "projects.github_hint" ) },
+      children: [ Dom.el( "i" , { class: "bi bi-github me-1" , attrs: { "aria-hidden": "true" } } ) , Dom.el( "span" , { text: I18n.get( "projects.github_button" ) } ) ],
+    } );
+  },
+
+  // Asks for a link and opens it in a new tab, so the portal stays where it
+  // is. The tab has to be opened now, before the await, or the browser takes
+  // it for a popup. Join (newTab false) still goes there in this tab.
+  async go( event , ask , newTab ) {
     const tab = newTab ? window.open( "about:blank" , "_blank" ) : null;
+    if ( newTab && tab ) window.focus();
     try {
       const answer = await ask();
       if ( tab ) {

@@ -1000,6 +1000,10 @@
           "favorite": {
             "type": "boolean"
           },
+          "github_url": {
+            "description": "Where the project's code lives, or empty.",
+            "type": "string"
+          },
           "health": {
             "description": "up, down, or empty before the first check.",
             "type": "string"
@@ -1066,6 +1070,7 @@
           "created_at",
           "description",
           "favorite",
+          "github_url",
           "health",
           "icon",
           "id",
