@@ -16,6 +16,7 @@ This file is generated: do not edit it. Change the docs next to the handlers and
 - [Owner](#owner)
 - [Monitoring](#monitoring)
 - [Catalog](#catalog)
+- [Manage project](#manage-project)
 - [Projects](#projects)
 - [Schemas](#schemas)
 
@@ -2795,6 +2796,7 @@ allowed false keeps a listed project from one person: it leaves their list and t
 |---|---|---|---|---|
 | `allowed` | boolean | yes |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
 | `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
 
 **Reply 200**: Success
 
@@ -2906,7 +2908,7 @@ Change a project's name, description, address, icon, color, links or whether it 
 
 Put someone on a project
 
-Make someone an account on the project now, as if they had joined. They sign in from their own list; no link is handed to you.
+Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.
 
 |  |  |
 |---|---|
@@ -2926,6 +2928,8 @@ Make someone an account on the project now, as if they had joined. They sign in 
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
 | `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `expires_in_days` | integer | no | 0 to 3650 | Their account there stops working this many days from now. 0 or left out: never. |
+| `role` | string | no | one of `user`, `viewer` | Their role on the project. Default user; viewer (view only) needs an app that has it. |
 
 **Reply 200**: Success
 
@@ -2999,7 +3003,7 @@ Say which account on the project is theirs. Opening the project then signs them 
 
 Take someone off a project here
 
-Forget someone's account on the project, and their own key for it. Their account on the project itself stays: disable it there to stop them signing in with what they already have.
+Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.
 
 |  |  |
 |---|---|
@@ -3019,6 +3023,7 @@ Forget someone's account on the project, and their own key for it. Their account
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
 | `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `on_project` | string | no | one of `keep`, `disable`, `revoke` | What happens to their account on the project itself: keep it (the default), disable it, or end its sessions, links and keys. |
 
 **Reply 200**: Success
 
@@ -3103,14 +3108,503 @@ Runs POST /api/admin/projects/{project_id}/access/{user_id} once per item: items
 | `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
 | `items` | array of object | yes |  | One entry per thing to change: its id, and any field that differs from shared. |
 | `items[].allowed` | boolean | no |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
+| `items[].on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
 | `items[].project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
 | `items[].user_id` | integer | yes | at least 1 | The account's id here, from admin_list_users. |
 | `shared` | object | no |  | Fields every item gets, unless the item sets its own. |
 | `shared.allowed` | boolean | no |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
+| `shared.on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
 
 **Reply 200**: Success
 
 [`BulkReply`](#bulkreply).
+
+## Manage project
+
+| Method | Path | Summary | Who may call |
+|---|---|---|---|
+| GET | [`/api/admin/projects/{project_id}/invite-links`](#get-apiadminprojectsproject_idinvite-links) | A project's invite links | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/invite-links`](#post-apiadminprojectsproject_idinvite-links) | Make an invite link on a project | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/invite-links/{link_id}/revoke`](#post-apiadminprojectsproject_idinvite-linkslink_idrevoke) | Stop an invite link on a project | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/keys/{key_id}/revoke`](#post-apiadminprojectsproject_idkeyskey_idrevoke) | Revoke an API key on a project | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/remote-users`](#post-apiadminprojectsproject_idremote-users) | Make an account on a project | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/delete`](#post-apiadminprojectsproject_idremote-usersremote_user_iddelete) | Delete an account on a project | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/disabled`](#post-apiadminprojectsproject_idremote-usersremote_user_iddisabled) | Disable or enable an account on a project | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/expiry`](#post-apiadminprojectsproject_idremote-usersremote_user_idexpiry) | Set when an account on a project expires | browser session or API key, admins |
+| GET | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys`](#get-apiadminprojectsproject_idremote-usersremote_user_idkeys) | An account's API keys on a project | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys`](#post-apiadminprojectsproject_idremote-usersremote_user_idkeys) | Make an API key on a project | browser session only, admins |
+| POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link`](#post-apiadminprojectsproject_idremote-usersremote_user_idlogin-link) | A login link for an account on a project | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access`](#post-apiadminprojectsproject_idremote-usersremote_user_idrevoke-access) | Sign an account out everywhere on a project | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/role`](#post-apiadminprojectsproject_idremote-usersremote_user_idrole) | Change an account's role on a project | browser session or API key, admins |
+| POST | [`/api/admin/users/{user_id}/project-accounts`](#post-apiadminusersuser_idproject-accounts) | Disable someone's accounts on every project | browser session or API key, admins |
+
+### GET /api/admin/projects/{project_id}/invite-links
+
+A project's invite links
+
+The invite links on the project itself. Needs an app with invite links switched on.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_list_remote_invite_links`](mcp.md#admin_list_remote_invite_links) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `invite_links` | array of object | yes |  |  |
+| `invite_links[].expires_at` | string (date-time) | yes |  |  |
+| `invite_links[].id` | string | yes |  |  |
+| `invite_links[].label` | string | yes |  |  |
+| `invite_links[].live` | boolean | yes |  |  |
+| `invite_links[].max_uses` | integer | yes |  |  |
+| `invite_links[].remaining` | integer | yes |  |  |
+| `invite_links[].revoked` | boolean | yes |  |  |
+| `invite_links[].role` | string | yes |  |  |
+| `invite_links[].used` | integer | yes |  |  |
+
+### POST /api/admin/projects/{project_id}/invite-links
+
+Make an invite link on a project
+
+One link a group can join the project itself through: up to max_uses accounts, for days days. role viewer makes them view only, on an app that has it.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_create_remote_invite_link`](mcp.md#admin_create_remote_invite_link) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `days` | integer | yes | 1 to 365 |  |
+| `label` | string | yes | 1 to 80 characters |  |
+| `max_uses` | integer | yes | 1 to 1000 |  |
+| `role` | string | no | one of `user`, `viewer` | What people who join through it become. Default user. |
+
+**Reply 201**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `join_url` | string (uri) | yes |  | The link to hand out, shown in this response only. A credential: treat it like a password. |
+
+### POST /api/admin/projects/{project_id}/invite-links/{link_id}/revoke
+
+Stop an invite link on a project
+
+The link stops working. Accounts already made through it stay.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_revoke_remote_invite_link`](mcp.md#admin_revoke_remote_invite_link) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `link_id` | path | string | yes | 1 to 100 characters | The link's id, from admin_list_remote_invite_links. |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `ok` | boolean | yes |  |  |
+
+### POST /api/admin/projects/{project_id}/keys/{key_id}/revoke
+
+Revoke an API key on a project
+
+The key stops working there now, and so does every key it made.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_revoke_remote_key`](mcp.md#admin_revoke_remote_key) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `key_id` | path | string | yes | 1 to 100 characters | The key's id, from admin_list_remote_keys. |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `ok` | boolean | yes |  |  |
+
+### POST /api/admin/projects/{project_id}/remote-users
+
+Make an account on a project
+
+Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_create_remote_user`](mcp.md#admin_create_remote_user) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `display_name` | string | yes | 1 to 80 characters |  |
+| `expires_in_days` | integer | no | 0 to 3650 | The account stops working this many days from now. 0 or left out: never. Needs an app with accounts that expire. |
+| `role` | string | yes | one of `user`, `viewer`, `admin` | viewer needs an app with view-only accounts. |
+| `user_id` | integer | no | at least 0 | Someone here to put on the project with it, so their Open signs into it. Left out: a guest with no account here. |
+
+**Reply 201**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `login_url` | string | yes |  | Signs the new account in. It works once, for 15 minutes. A credential: treat it like a password. |
+| `remote_user_id` | integer | yes |  |  |
+
+### POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/delete
+
+Delete an account on a project
+
+Delete the account on the project itself, with everything it held there. Anyone here it belonged to comes off the project. It cannot be undone.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_delete_remote_user`](mcp.md#admin_delete_remote_user) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | path | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `ok` | boolean | yes |  |  |
+
+### POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/disabled
+
+Disable or enable an account on a project
+
+disabled true stops the account signing in there, and ends its sessions.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_set_remote_disabled`](mcp.md#admin_set_remote_disabled) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | path | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `disabled` | boolean | yes |  |  |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `ok` | boolean | yes |  |  |
+
+### POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/expiry
+
+Set when an account on a project expires
+
+The account stops working expires_in_days from now; 0 means never. Needs an app with accounts that expire.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_set_remote_expiry`](mcp.md#admin_set_remote_expiry) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | path | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `expires_in_days` | integer | yes | 0 to 3650 | Stops working this many days from now. 0: never. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `expires_at` | string (date-time) or null | yes |  |  |
+| `ok` | boolean | yes |  |  |
+
+### GET /api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys
+
+An account's API keys on a project
+
+The account's API keys there, never their secrets. Needs an app where the portal's key may make keys.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_list_remote_keys`](mcp.md#admin_list_remote_keys) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | path | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `keys` | array of object | yes |  |  |
+| `keys[].created_at` | string (date-time) | yes |  |  |
+| `keys[].expired` | boolean | yes |  |  |
+| `keys[].expires_at` | string (date-time) or null | no |  |  |
+| `keys[].id` | string | yes |  |  |
+| `keys[].last_used_at` | string (date-time) or null | no |  |  |
+| `keys[].live` | boolean | yes |  |  |
+| `keys[].minted_by_key` | string | no |  |  |
+| `keys[].name` | string | yes |  |  |
+| `keys[].revoked` | boolean | yes |  |  |
+| `keys[].role` | string | yes |  |  |
+
+### POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys
+
+Make an API key on a project
+
+An API key for the account on the project, shown once. It always expires, its role is no higher than the account's, and revoking the portal's admin key there revokes it too.
+
+|  |  |
+|---|---|
+| Who may call | browser session only, admins |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | path | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `expires_in_days` | integer | yes | 1 to 365 | A key made from the portal always expires. |
+| `name` | string | yes | 1 to 80 characters |  |
+| `role` | string | yes | one of `user`, `viewer`, `admin` | No higher than the account's own role. |
+
+**Reply 201**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `created_at` | string (date-time) | yes |  |  |
+| `credential` | string | yes |  |  |
+| `expired` | boolean | yes |  |  |
+| `expires_at` | string (date-time) or null | no |  |  |
+| `id` | string | yes |  |  |
+| `last_used_at` | string (date-time) or null | no |  |  |
+| `live` | boolean | yes |  |  |
+| `minted_by_key` | string | no |  |  |
+| `name` | string | yes |  |  |
+| `revoked` | boolean | yes |  |  |
+| `role` | string | yes |  |  |
+
+### POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link
+
+A login link for an account on a project
+
+A fresh login link for one account on the project. It works once, for 15 minutes.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_remote_login_link`](mcp.md#admin_remote_login_link) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | path | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `login_url` | string | yes |  | Open it to sign in to the project. It works once, for 15 minutes. A credential: treat it like a password. |
+| `project_id` | integer | yes |  |  |
+
+### POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access
+
+Sign an account out everywhere on a project
+
+End every session, login link and API key the account has there. The account stays enabled; a new login link signs it back in.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_revoke_remote_access`](mcp.md#admin_revoke_remote_access) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | path | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `ok` | boolean | yes |  |  |
+
+### POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/role
+
+Change an account's role on a project
+
+admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_set_remote_role`](mcp.md#admin_set_remote_role) |
+| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | path | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `role` | string | yes | one of `user`, `viewer`, `admin` |  |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `ok` | boolean | yes |  |  |
+
+### POST /api/admin/users/{user_id}/project-accounts
+
+Disable someone's accounts on every project
+
+For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_act_on_project_accounts`](mcp.md#admin_act_on_project_accounts) |
+| Errors | 400, 401, 403, 404, 429, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `user_id` | path | integer | yes | at least 1 | The account's id here. |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `on_project` | string | yes | one of `disable`, `revoke` | Disable their account on every project, or end its sessions, links and keys there. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `results` | array of object | yes |  | One per project they are on that the portal made or linked an account for. |
+| `results[].error` | string | no |  |  |
+| `results[].name` | string | yes |  |  |
+| `results[].ok` | boolean | yes |  |  |
+| `results[].project_id` | integer | yes |  |  |
 
 ## Projects
 
@@ -3450,9 +3944,11 @@ The shapes the routes above refer to by name.
 | `base_url` | string | yes |  |  |
 | `board_share_url` | string | yes |  | A view-only TodoBoard share link, which everyone who may see the project gets. |
 | `board_url` | string | yes |  | Its TodoBoard board, for admins. |
+| `capabilities` | array of string | yes |  | What Manage project may do there: viewer_role, account_expiry, key_minting, invite_links, key_sign_in. |
 | `check_note` | string | yes |  |  |
 | `checked_at` | string (date-time) or null | yes |  |  |
 | `color` | string | yes |  |  |
+| `contract` | integer | yes |  | Which portal contract it speaks: 2 lets Manage project do everything its capabilities list; 0 is older. |
 | `created_at` | string (date-time) | yes |  |  |
 | `description` | string | yes |  |  |
 | `excluded_user_ids` | array of integer | yes |  | People it is kept from. |
@@ -3466,6 +3962,7 @@ The shapes the routes above refer to by name.
 | `members` | integer | yes |  |  |
 | `name` | string | yes |  |  |
 | `position` | integer | yes |  |  |
+| `version` | string | yes |  | The app's version, from its last check. |
 
 ### Error
 
@@ -3695,8 +4192,12 @@ One of these:
 |---|---|---|---|---|
 | `disabled` | boolean | yes |  |  |
 | `display_name` | string | yes |  |  |
+| `expired` | boolean | yes |  |  |
+| `expires_at` | string (date-time) or null | yes |  | When it stops working there, or null for never (or an app without expiring accounts). |
 | `id` | integer | yes |  |  |
 | `owner` | boolean | yes |  |  |
+| `portal_name` | string | no |  |  |
+| `portal_user_id` | integer | no |  | Who it belongs to here, when someone is on the project with it. |
 | `role` | string | yes |  |  |
 
 ### Revoked

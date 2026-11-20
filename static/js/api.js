@@ -184,11 +184,37 @@ const Api = {
   deleteProject( id )            { return this.post( "/api/admin/projects/" + id + "/delete" ); },
   restoreProject( id )           { return this.post( "/api/admin/projects/" + id + "/restore" ); },
   projectAccess( id , offset , params ) { return this.request( "/api/admin/projects/" + id + "/access" + this.query( { offset: offset , ...params } ) ); },
-  setProjectAccess( id , userId , allowed ) { return this.post( "/api/admin/projects/" + id + "/access/" + userId , { allowed: allowed } ); },
-  grantProject( id , userId )    { return this.post( "/api/admin/projects/" + id + "/grant/" + userId ); },
-  remoteUsers( id , q )          { return this.request( "/api/admin/projects/" + id + "/remote-users" + this.query( { q: q } ) ); },
+  // onProject is what happens to their account on the project itself:
+  // "keep", "disable" or "revoke" (Manage project, contract v2).
+  setProjectAccess( id , userId , allowed , onProject ) {
+    return this.post( "/api/admin/projects/" + id + "/access/" + userId , { allowed: allowed , on_project: onProject || "" } );
+  },
+  // options: { role , expires_in_days }, both optional.
+  grantProject( id , userId , options ) { return this.post( "/api/admin/projects/" + id + "/grant/" + userId , options ); },
+  remoteUsers( id , q , offset ) { return this.request( "/api/admin/projects/" + id + "/remote-users" + this.query( { q: q , offset: offset } ) ); },
   linkRemoteUser( id , userId , remoteUserId ) { return this.post( "/api/admin/projects/" + id + "/link/" + userId , { remote_user_id: remoteUserId } ); },
-  removeProjectMember( id , userId ) { return this.post( "/api/admin/projects/" + id + "/members/" + userId + "/remove" ); },
+  removeProjectMember( id , userId , onProject ) {
+    return this.post( "/api/admin/projects/" + id + "/members/" + userId + "/remove" , { on_project: onProject || "" } );
+  },
+  // Manage project (manage.js): an app's own accounts, invite links and keys.
+  remoteUserPath( id , remoteUserId , action ) {
+    return "/api/admin/projects/" + id + "/remote-users/" + remoteUserId + ( action ? "/" + action : "" );
+  },
+  createRemoteUser( id , fields )             { return this.post( "/api/admin/projects/" + id + "/remote-users" , fields ); },
+  remoteLoginLink( id , remoteUserId )        { return this.post( this.remoteUserPath( id , remoteUserId , "login-link" ) ); },
+  setRemoteRole( id , remoteUserId , role )   { return this.post( this.remoteUserPath( id , remoteUserId , "role" ) , { role: role } ); },
+  setRemoteExpiry( id , remoteUserId , days ) { return this.post( this.remoteUserPath( id , remoteUserId , "expiry" ) , { expires_in_days: days } ); },
+  setRemoteDisabled( id , remoteUserId , flag ) { return this.post( this.remoteUserPath( id , remoteUserId , "disabled" ) , { disabled: flag } ); },
+  revokeRemoteAccess( id , remoteUserId )     { return this.post( this.remoteUserPath( id , remoteUserId , "revoke-access" ) ); },
+  deleteRemoteUser( id , remoteUserId )       { return this.post( this.remoteUserPath( id , remoteUserId , "delete" ) ); },
+  remoteInviteLinks( id )                     { return this.request( "/api/admin/projects/" + id + "/invite-links" ); },
+  createRemoteInvite( id , fields )           { return this.post( "/api/admin/projects/" + id + "/invite-links" , fields ); },
+  revokeRemoteInvite( id , linkId )           { return this.post( "/api/admin/projects/" + id + "/invite-links/" + encodeURIComponent( linkId ) + "/revoke" ); },
+  remoteKeys( id , remoteUserId )             { return this.request( this.remoteUserPath( id , remoteUserId , "keys" ) ); },
+  mintRemoteKey( id , remoteUserId , fields ) { return this.post( this.remoteUserPath( id , remoteUserId , "keys" ) , fields ); },
+  revokeRemoteKey( id , keyId )               { return this.post( "/api/admin/projects/" + id + "/keys/" + encodeURIComponent( keyId ) + "/revoke" ); },
+  // onProject "disable" or "revoke", on every project they are on.
+  actOnProjectAccounts( userId , onProject )  { return this.post( "/api/admin/users/" + userId + "/project-accounts" , { on_project: onProject } ); },
   listInvites( offset , params ) { return this.request( "/api/admin/invite-links" + this.query( { offset: offset , ...params } ) ); },
   createInvite( label , maxUses , days ) {
     return this.post( "/api/admin/invite-links" , { label: label , max_uses: maxUses , days: days } );

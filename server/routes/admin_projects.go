@@ -45,6 +45,9 @@ type catalogRow struct {
 	ExcludedUserIDs []uint64   `json:"excluded_user_ids" jsonschema_description:"People it is kept from."`
 	Position        int        `json:"position"`
 	CreatedAt       time.Time  `json:"created_at"`
+	Version         string     `json:"version" jsonschema_description:"The app's version, from its last check."`
+	Contract        int        `json:"contract" jsonschema_description:"Which portal contract it speaks: 2 lets Manage project do everything its capabilities list; 0 is older."`
+	Capabilities    []string   `json:"capabilities" jsonschema_description:"What Manage project may do there: viewer_role, account_expiry, key_minting, invite_links, key_sign_in."`
 }
 
 func ( catalogRow ) APIName() ( name string ) { name = "CatalogProject"; return }
@@ -59,6 +62,8 @@ func newCatalogRow( secret_key string , project *models.Project , members int ) 
 		GitHubURL: project.GitHubURL , BoardURL: project.BoardURL , BoardShareURL: openShareLink( secret_key , project ) ,
 	}
 	if row.ExcludedUserIDs == nil { row.ExcludedUserIDs = []uint64{} }
+	row.Version , row.Contract , row.Capabilities = project.Version , project.Contract , project.Capabilities
+	if row.Capabilities == nil { row.Capabilities = []string{} }
 	return
 }
 
@@ -394,6 +399,7 @@ type setAccessRequest struct {
 	projectIDPath
 	UserID  uint64 `json:"user_id" path:"user_id" jsonschema:"minimum=1" jsonschema_description:"The account's id here, from admin_list_users." error:"invalid user id"`
 	Allowed bool   `json:"allowed" jsonschema_description:"false keeps the project from them: it leaves their list, and the portal will not sign them into it."`
+	OnProject string `json:"on_project,omitempty" jsonschema:"enum=keep,enum=disable,enum=revoke" jsonschema_description:"With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys." error:"on_project must be keep, disable or revoke"`
 }
 
 type setAccessReply struct {
@@ -417,17 +423,24 @@ func ( handlers *Handlers ) setAccess( c fiber.Ctx , in *setAccessRequest ) ( re
 		err = refuse( fiber.StatusNotFound , "no such user" )
 		return
 	}
+	if in.Allowed == false {
+		if membership , get_err := models.GetMembership( handlers.Store , in.UserID , in.ProjectID ); get_err == nil && membership.Active() {
+			if err = handlers.actOnRemoteAccount( membership , in.OnProject ); err != nil { return }
+		}
+	}
 	if _ , set_err := models.SetUserExcluded( handlers.Store , in.ProjectID , in.UserID , in.Allowed == false ); set_err != nil {
 		return nil , projectFieldsRefusal( set_err )
 	}
-	handlers.audit( c , logs.KindAdmin , "project access changed" , fiber.Map{ "project_id": in.ProjectID , "user_id": in.UserID , "allowed": in.Allowed } )
+	handlers.audit( c , logs.KindAdmin , "project access changed" , fiber.Map{ "project_id": in.ProjectID , "user_id": in.UserID , "allowed": in.Allowed , "on_project": in.OnProject } )
 	reply = &setAccessReply{ Ok: true , Allowed: in.Allowed }
 	return
 }
 
 type grantRequest struct {
 	projectIDPath
-	UserID uint64 `json:"user_id" path:"user_id" jsonschema:"minimum=1" jsonschema_description:"The account's id here." error:"invalid user id"`
+	UserID        uint64 `json:"user_id" path:"user_id" jsonschema:"minimum=1" jsonschema_description:"The account's id here." error:"invalid user id"`
+	Role          string `json:"role,omitempty" jsonschema:"enum=user,enum=viewer" jsonschema_description:"Their role on the project. Default user; viewer (view only) needs an app that has it." error:"role must be user or viewer"`
+	ExpiresInDays int    `json:"expires_in_days,omitempty" jsonschema:"minimum=0,maximum=3650" jsonschema_description:"Their account there stops working this many days from now. 0 or left out: never." error:"expires_in_days must be 0-3650"`
 }
 
 // grantProject is joining on someone's behalf: their account on the project
@@ -435,8 +448,8 @@ type grantRequest struct {
 //
 // @route("POST /api/admin/projects/{project_id}/grant/{user_id}", summary="Put someone on a project",
 //     tag="Catalog", role=ADMIN, errors=(404, 409, 502),
-//     description="Make someone an account on the project now, as if they had joined. They sign in from "
-//         "their own list; no link is handed to you.",
+//     description="Make someone an account on the project now, as if they had joined, optionally view only "
+//         "or expiring. They sign in from their own list; no link is handed to you.",
 //     mcp="admin_grant_project",
 // )
 func ( handlers *Handlers ) grantProject( c fiber.Ctx , in *grantRequest ) ( reply *okReply , err error ) {
@@ -451,7 +464,14 @@ func ( handlers *Handlers ) grantProject( c fiber.Ctx , in *grantRequest ) ( rep
 		err = refuse( fiber.StatusConflict , "this project is kept from them: allow it first" )
 		return
 	}
-	if _ , err = handlers.joinAs( c , project , user , false ); err != nil { return }
+	role := in.Role
+	if role == "" { role = remoteRoleUser }
+	if refused := handlers.roleAllowed( project , role ); refused != nil { return nil , refused }
+	expires_at := expiryFrom( in.ExpiresInDays )
+	if expires_at != nil {
+		if refused := handlers.needs( project , remote.CapAccountExpiry ); refused != nil { return nil , refused }
+	}
+	if _ , err = handlers.joinAs( c , project , user , false , role , expires_at ); err != nil { return }
 	reply = &okReply{ Ok: true }
 	return
 }
@@ -468,6 +488,10 @@ type remoteUser struct {
 	Role        string `json:"role"`
 	Disabled    bool   `json:"disabled"`
 	Owner       bool   `json:"owner"`
+	ExpiresAt   *time.Time `json:"expires_at" jsonschema_description:"When it stops working there, or null for never (or an app without expiring accounts)."`
+	Expired     bool   `json:"expired"`
+	PortalUserID uint64 `json:"portal_user_id,omitempty" jsonschema_description:"Who it belongs to here, when someone is on the project with it."`
+	PortalName  string `json:"portal_name,omitempty"`
 }
 
 func ( remoteUser ) APIName() ( name string ) { name = "RemoteUser"; return }
@@ -494,9 +518,13 @@ func ( handlers *Handlers ) remoteUsers( c fiber.Ctx , in *remoteUsersRequest ) 
 	defer cancel()
 	users , next , total , remote_err := remote.ListUsers( ctx , project.BaseURL , key , in.Q , in.Offset )
 	if remote_err != nil { return nil , handlers.remoteRefusal( project , remote_err , true ) }
+	owners , err := handlers.remoteOwners( project.ID )
+	if err != nil { return }
 	reply = &remoteUsersReply{ Users: []remoteUser{} , Paged: Paged{ Next: next , Total: total } }
 	for _ , user := range users {
-		reply.Users = append( reply.Users , remoteUser{ ID: user.ID , DisplayName: user.DisplayName , Role: user.Role , Disabled: user.Disabled , Owner: user.Owner } )
+		row := remoteUser{ ID: user.ID , DisplayName: user.DisplayName , Role: user.Role , Disabled: user.Disabled , Owner: user.Owner , ExpiresAt: user.ExpiresAt , Expired: user.Expired }
+		if person := owners[ user.ID ]; person != nil { row.PortalUserID , row.PortalName = person.ID , person.DisplayName }
+		reply.Users = append( reply.Users , row )
 	}
 	return
 }
@@ -505,6 +533,19 @@ type linkRemoteRequest struct {
 	projectIDPath
 	UserID       uint64 `json:"user_id" path:"user_id" jsonschema:"minimum=1" jsonschema_description:"The account's id here." error:"invalid user id"`
 	RemoteUserID uint64 `json:"remote_user_id" jsonschema:"minimum=1" jsonschema_description:"Their account's id on the project, from admin_list_remote_users." error:"invalid remote user id"`
+}
+
+// remoteOwners is who here each account on the project belongs to, by its
+// id there.
+func ( handlers *Handlers ) remoteOwners( project_id uint64 ) ( owners map[uint64]*models.User , err error ) {
+	owners = map[uint64]*models.User{}
+	members , err := models.MembersOf( handlers.Store , project_id )
+	if err != nil { return }
+	for user_id , membership := range members {
+		if membership.RemoteUserID == 0 { continue }
+		if user , get_err := models.GetUser( handlers.Store , user_id ); get_err == nil { owners[ membership.RemoteUserID ] = user }
+	}
+	return
 }
 
 // linkRemote matches someone here to an account the project already had, so
@@ -565,7 +606,8 @@ func ( handlers *Handlers ) findRemoteUser( project *models.Project , key string
 
 type removeMemberRequest struct {
 	projectIDPath
-	UserID uint64 `json:"user_id" path:"user_id" jsonschema:"minimum=1" jsonschema_description:"The account's id here." error:"invalid user id"`
+	UserID    uint64 `json:"user_id" path:"user_id" jsonschema:"minimum=1" jsonschema_description:"The account's id here." error:"invalid user id"`
+	OnProject string `json:"on_project,omitempty" jsonschema:"enum=keep,enum=disable,enum=revoke" jsonschema_description:"What happens to their account on the project itself: keep it (the default), disable it, or end its sessions, links and keys." error:"on_project must be keep, disable or revoke"`
 }
 
 // removeMember forgets which account on the project is someone's. Nothing
@@ -573,17 +615,19 @@ type removeMemberRequest struct {
 //
 // @route("POST /api/admin/projects/{project_id}/members/{user_id}/remove", summary="Take someone off a project here",
 //     tag="Catalog", role=ADMIN, errors=(404,),
-//     description="Forget someone's account on the project, and their own key for it. Their account on "
-//         "the project itself stays: disable it there to stop them signing in with what they already have.",
+//     description="Forget someone's account on the project, and their own key for it. on_project says "
+//         "what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.",
 //     mcp="admin_remove_project_member", destructive=True,
 // )
 func ( handlers *Handlers ) removeMember( c fiber.Ctx , in *removeMemberRequest ) ( reply *okReply , err error ) {
-	if _ , get_err := models.GetMembership( handlers.Store , in.UserID , in.ProjectID ); get_err != nil {
+	membership , get_err := models.GetMembership( handlers.Store , in.UserID , in.ProjectID )
+	if get_err != nil {
 		err = refuse( fiber.StatusNotFound , "they are not on this project" )
 		return
 	}
+	if err = handlers.actOnRemoteAccount( membership , in.OnProject ); err != nil { return }
 	if err = models.RemoveMembership( handlers.Store , in.UserID , in.ProjectID ); err != nil { return }
-	handlers.audit( c , logs.KindAdmin , "project member removed" , fiber.Map{ "project_id": in.ProjectID , "user_id": in.UserID } )
+	handlers.audit( c , logs.KindAdmin , "project member removed" , fiber.Map{ "project_id": in.ProjectID , "user_id": in.UserID , "on_project": in.OnProject } )
 	reply = &okReply{ Ok: true }
 	return
 }

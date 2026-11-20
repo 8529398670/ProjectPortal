@@ -274,6 +274,45 @@ const Dom = {
     }
   },
 
+  // Hands a fresh secret (a login link, an invite link, a key) to the person:
+  // { title , label , help , value , show }. Copied to the clipboard with a
+  // toast when the browser allows it; shown in a box to copy by hand when it
+  // does not, or always with show (a key is shown once, so it is shown).
+  async handOver( options ) {
+    if ( !options.show ) {
+      try {
+        await navigator.clipboard.writeText( options.value );
+        this.toast( options.copied || I18n.get( "ui.copied" ) , "ok" );
+        return;
+      } catch ( error ) { /* shown below instead */ }
+    }
+    await this.form( {
+      title: options.title,
+      submit: I18n.get( "ui.done" ) || "Done",
+      fields: [ { name: "value" , type: "custom" , build: ( id ) => {
+        const input = this.el( "input" , { class: "form-control font-monospace" , attrs: { type: "text" , id: id , readonly: "" , "aria-describedby": id + "-help" } } );
+        input.value = options.value;
+        input.addEventListener( "focus" , () => input.select() );
+        const copy = this.el( "button" , { class: "btn btn-outline-secondary" , attrs: { type: "button" } , text: I18n.get( "ui.copy" ) ,
+          on: { click: async () => {
+            try {
+              await navigator.clipboard.writeText( options.value );
+              this.toast( I18n.get( "ui.copied" ) , "ok" );
+            } catch ( error ) {
+              input.focus();
+              this.toast( I18n.get( "ui.copy_hint" ) , "ok" );
+            }
+          } } } );
+        return { element: this.el( "div" , { children: [
+          this.el( "label" , { class: "form-label" , text: options.label , attrs: { for: id } } ),
+          this.el( "div" , { class: "input-group" , children: [ input , copy ] } ),
+          options.help ? this.el( "div" , { class: "form-text" , text: options.help , attrs: { id: id + "-help" } } ) : null,
+        ].filter( Boolean ) } ) , read: () => options.value };
+      } } ],
+      save: () => true,
+    } );
+  },
+
   // Saves text as a file, for what is better kept than copied.
   download( name , text ) {
     const url = URL.createObjectURL( new Blob( [ text ] , { type: "text/plain" } ) );

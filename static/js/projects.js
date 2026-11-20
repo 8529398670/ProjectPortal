@@ -275,20 +275,11 @@ const Projects = {
   },
 
   showLink( project , url ) {
-    return Dom.form( {
+    return Dom.handOver( {
+      show: true , value: url ,
       title: I18n.get( "projects.new_link_heading" ).replace( "{name}" , () => project.name ),
-      submit: I18n.get( "projects.new_link_done" ),
-      fields: [ { name: "link" , type: "custom" , build: ( id ) => {
-        const input = Dom.el( "input" , { class: "form-control font-monospace" , attrs: { type: "text" , id: id , readonly: "" , "aria-describedby": id + "-help" } } );
-        input.value = url;
-        input.addEventListener( "focus" , () => input.select() );
-        return { element: Dom.el( "div" , { children: [
-          Dom.el( "label" , { class: "form-label" , text: I18n.get( "projects.new_link_label" ) , attrs: { for: id } } ),
-          input,
-          Dom.el( "div" , { class: "form-text" , text: I18n.get( "projects.new_link_help" ) , attrs: { id: id + "-help" } } ),
-        ] } ) , read: () => url };
-      } } ],
-      save: () => true,
+      label: I18n.get( "projects.new_link_label" ),
+      help: I18n.get( "projects.new_link_help" ),
     } );
   },
 

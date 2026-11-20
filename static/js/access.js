@@ -5,6 +5,7 @@
 // them off it here. app.js calls Access.init( me ) for admins.
 const Access = {
   projectId: null,
+  projects: [],
 
   async init( me ) {
     if ( me.role !== "admin" ) return;
@@ -22,6 +23,7 @@ const Access = {
   // The project picker, keeping the one picked while it still exists.
   async fillProjects() {
     const page = await Api.listCatalog( 0 , { limit: 1000 } );
+    this.projects = page.projects;
     const select = Dom.get( "access-project" );
     const options = page.projects.map( ( project ) => Dom.el( "option" , { text: project.name , attrs: { value: String( project.id ) } } ) );
     Dom.swap( select , ...options );
@@ -99,11 +101,20 @@ const Access = {
 
   async onAllow( row , input ) {
     const projectId = this.projectId;
-    const set = async ( allowed ) => {
-      await Api.setProjectAccess( projectId , row.user_id , allowed );
+    const allowed = input.checked;
+    let onProject = "keep";
+    if ( !allowed && row.member ) {
+      onProject = await this.onProjectChoice( row , I18n.get( "access.deny_heading" ).replace( "{name}" , () => row.display_name ) );
+      if ( onProject === null ) {
+        input.checked = true;
+        return;
+      }
+    }
+    // Undo lets them back in here; it does not switch an account back on there.
+    const set = async ( value ) => {
+      await Api.setProjectAccess( projectId , row.user_id , value , value ? "keep" : onProject );
       if ( this.projectId === projectId ) await this.refresh();
     };
-    const allowed = input.checked;
     try {
       await Undo.run( {
         label: I18n.get( allowed ? "access.undo_allow" : "access.undo_deny" ).replace( "{name}" , () => row.display_name ),
@@ -116,12 +127,62 @@ const Access = {
     }
   },
 
+  project() {
+    return this.projects.find( ( project ) => project.id === this.projectId ) || { capabilities: [] };
+  },
+
+  has( capability ) {
+    return ( this.project().capabilities || [] ).includes( capability );
+  },
+
+  // Putting someone on: straight away on an app without view-only or
+  // expiring accounts, otherwise asking which.
   async onGrant( row ) {
+    const fields = [];
+    if ( this.has( "viewer_role" ) ) {
+      fields.push( { name: "role" , type: "select" , label: I18n.get( "manage.role_label" ) , value: "user" ,
+        options: [ "user" , "viewer" ].map( ( role ) => ( { value: role , label: I18n.get( "manage.role_" + role ) } ) ) } );
+    }
+    if ( this.has( "account_expiry" ) ) {
+      fields.push( { name: "expires_in_days" , type: "number" , min: 0 , max: 3650 , label: I18n.get( "manage.days_label" ) ,
+        help: I18n.get( "manage.expiry_help" ) , placeholder: I18n.get( "manage.days_never" ) } );
+    }
+    const grant = ( values ) => Api.grantProject( this.projectId , row.user_id , {
+      role: values.role || "user" , expires_in_days: values.expires_in_days || 0 ,
+    } );
     try {
-      await Api.grantProject( this.projectId , row.user_id );
+      if ( fields.length === 0 ) {
+        await grant( {} );
+      } else {
+        const saved = await Dom.form( {
+          title: I18n.get( "access.grant_heading" ).replace( "{name}" , () => row.display_name ),
+          submit: I18n.get( "access.grant_button" ),
+          fields: fields,
+          save: grant,
+        } );
+        if ( saved === null ) return;
+      }
       Dom.toast( I18n.get( "access.granted" ).replace( "{name}" , () => row.display_name ) , "ok" );
       await this.refresh();
     } catch ( error ) { App.showError( error.message ); }
+  },
+
+  // What happens to someone's account on the project as they come off it:
+  // asked when the portal has an account there it could act on. Answers
+  // "keep", "disable", "revoke", or null for Cancel.
+  async onProjectChoice( row , title ) {
+    if ( !row.member || !row.remote_user_id || row.via === "own_key" ) {
+      return ( await Dom.confirm( title ) ) ? "keep" : null;
+    }
+    const saved = await Dom.form( {
+      title: title,
+      submit: I18n.get( "access.remove_go" ),
+      fields: [ { name: "on_project" , type: "select" , label: I18n.get( "access.on_project_label" ) ,
+        help: I18n.get( "access.on_project_help" ) , value: "disable" ,
+        options: [ "disable" , "revoke" , "keep" ].map( ( choice ) => ( { value: choice , label: I18n.get( "access.on_project_" + choice ) } ) ) } ],
+      save: ( values ) => values.on_project,
+    } );
+    return saved;
   },
 
   // Which of the project's own accounts is theirs: picked from the project's
@@ -154,9 +215,10 @@ const Access = {
   },
 
   async onRemove( row ) {
-    if ( !( await Dom.confirm( I18n.get( "access.remove_confirm" ).replace( "{name}" , () => row.display_name ) ) ) ) return;
+    const onProject = await this.onProjectChoice( row , I18n.get( "access.remove_heading" ).replace( "{name}" , () => row.display_name ) );
+    if ( onProject === null ) return;
     try {
-      await Api.removeProjectMember( this.projectId , row.user_id );
+      await Api.removeProjectMember( this.projectId , row.user_id , onProject );
       await this.refresh();
     } catch ( error ) { App.showError( error.message ); }
   },

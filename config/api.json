@@ -225,6 +225,13 @@
             "description": "Its TodoBoard board, for admins.",
             "type": "string"
           },
+          "capabilities": {
+            "description": "What Manage project may do there: viewer_role, account_expiry, key_minting, invite_links, key_sign_in.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "check_note": {
             "type": "string"
           },
@@ -237,6 +244,10 @@
           },
           "color": {
             "type": "string"
+          },
+          "contract": {
+            "description": "Which portal contract it speaks: 2 lets Manage project do everything its capabilities list; 0 is older.",
+            "type": "integer"
           },
           "created_at": {
             "format": "date-time",
@@ -285,15 +296,21 @@
           },
           "position": {
             "type": "integer"
+          },
+          "version": {
+            "description": "The app's version, from its last check.",
+            "type": "string"
           }
         },
         "required": [
           "base_url",
           "board_share_url",
           "board_url",
+          "capabilities",
           "check_note",
           "checked_at",
           "color",
+          "contract",
           "created_at",
           "description",
           "excluded_user_ids",
@@ -306,7 +323,8 @@
           "listed",
           "members",
           "name",
-          "position"
+          "position",
+          "version"
         ],
         "type": "object"
       },
@@ -1119,11 +1137,29 @@
           "display_name": {
             "type": "string"
           },
+          "expired": {
+            "type": "boolean"
+          },
+          "expires_at": {
+            "description": "When it stops working there, or null for never (or an app without expiring accounts).",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "type": "integer"
           },
           "owner": {
             "type": "boolean"
+          },
+          "portal_name": {
+            "type": "string"
+          },
+          "portal_user_id": {
+            "description": "Who it belongs to here, when someone is on the project with it.",
+            "type": "integer"
           },
           "role": {
             "type": "string"
@@ -1132,6 +1168,8 @@
         "required": [
           "disabled",
           "display_name",
+          "expired",
+          "expires_at",
           "id",
           "owner",
           "role"
@@ -5013,6 +5051,15 @@
                   "csrf_token": {
                     "description": "From GET /api/me. Browser sessions only.",
                     "type": "string"
+                  },
+                  "on_project": {
+                    "description": "With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys.",
+                    "enum": [
+                      "keep",
+                      "disable",
+                      "revoke"
+                    ],
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -5394,7 +5441,7 @@
     },
     "/api/admin/projects/{project_id}/grant/{user_id}": {
       "post": {
-        "description": "Make someone an account on the project now, as if they had joined. They sign in from their own list; no link is handed to you.",
+        "description": "Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.",
         "operationId": "post_api_admin_projects_project_id_grant_user_id",
         "parameters": [
           {
@@ -5415,6 +5462,362 @@
             "schema": {
               "minimum": 1,
               "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "expires_in_days": {
+                    "description": "Their account there stops working this many days from now. 0 or left out: never.",
+                    "maximum": 3650,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "role": {
+                    "description": "Their role on the project. Default user; viewer (view only) needs an app that has it.",
+                    "enum": [
+                      "user",
+                      "viewer"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Put someone on a project",
+        "tags": [
+          "Catalog"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/projects/{project_id}/invite-links": {
+      "get": {
+        "description": "The invite links on the project itself. Needs an app with invite links switched on.",
+        "operationId": "get_api_admin_projects_project_id_invite_links",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "invite_links": {
+                      "items": {
+                        "properties": {
+                          "expires_at": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "live": {
+                            "type": "boolean"
+                          },
+                          "max_uses": {
+                            "type": "integer"
+                          },
+                          "remaining": {
+                            "type": "integer"
+                          },
+                          "revoked": {
+                            "type": "boolean"
+                          },
+                          "role": {
+                            "type": "string"
+                          },
+                          "used": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "expires_at",
+                          "id",
+                          "label",
+                          "live",
+                          "max_uses",
+                          "remaining",
+                          "revoked",
+                          "role",
+                          "used"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "invite_links"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "A project's invite links",
+        "tags": [
+          "Manage project"
+        ],
+        "x-required-role": "admin"
+      },
+      "post": {
+        "description": "One link a group can join the project itself through: up to max_uses accounts, for days days. role viewer makes them view only, on an app that has it.",
+        "operationId": "post_api_admin_projects_project_id_invite_links",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "days": {
+                    "maximum": 365,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "label": {
+                    "maxLength": 80,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "max_uses": {
+                    "maximum": 1000,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "role": {
+                    "description": "What people who join through it become. Default user.",
+                    "enum": [
+                      "user",
+                      "viewer"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "days",
+                  "label",
+                  "max_uses"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "join_url": {
+                      "description": "The link to hand out, shown in this response only. A credential: treat it like a password.",
+                      "format": "uri",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "join_url"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Make an invite link on a project",
+        "tags": [
+          "Manage project"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/projects/{project_id}/invite-links/{link_id}/revoke": {
+      "post": {
+        "description": "The link stops working. Accounts already made through it stay.",
+        "operationId": "post_api_admin_projects_project_id_invite_links_link_id_revoke",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The link's id, from admin_list_remote_invite_links.",
+            "in": "path",
+            "name": "link_id",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
             }
           }
         ],
@@ -5487,9 +5890,9 @@
             "apiKey": []
           }
         ],
-        "summary": "Put someone on a project",
+        "summary": "Stop an invite link on a project",
         "tags": [
-          "Catalog"
+          "Manage project"
         ],
         "x-required-role": "admin"
       }
@@ -5585,6 +5988,109 @@
         "summary": "Set a project's admin key",
         "tags": [
           "Catalog"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/projects/{project_id}/keys/{key_id}/revoke": {
+      "post": {
+        "description": "The key stops working there now, and so does every key it made.",
+        "operationId": "post_api_admin_projects_project_id_keys_key_id_revoke",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The key's id, from admin_list_remote_keys.",
+            "in": "path",
+            "name": "key_id",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Revoke an API key on a project",
+        "tags": [
+          "Manage project"
         ],
         "x-required-role": "admin"
       }
@@ -5701,7 +6207,7 @@
     },
     "/api/admin/projects/{project_id}/members/{user_id}/remove": {
       "post": {
-        "description": "Forget someone's account on the project, and their own key for it. Their account on the project itself stays: disable it there to stop them signing in with what they already have.",
+        "description": "Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.",
         "operationId": "post_api_admin_projects_project_id_members_user_id_remove",
         "parameters": [
           {
@@ -5733,6 +6239,15 @@
                 "properties": {
                   "csrf_token": {
                     "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "on_project": {
+                    "description": "What happens to their account on the project itself: keep it (the default), disable it, or end its sessions, links and keys.",
+                    "enum": [
+                      "keep",
+                      "disable",
+                      "revoke"
+                    ],
                     "type": "string"
                   }
                 },
@@ -5898,6 +6413,1087 @@
         "summary": "A project's own accounts",
         "tags": [
           "Catalog"
+        ],
+        "x-required-role": "admin"
+      },
+      "post": {
+        "description": "Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it.",
+        "operationId": "post_api_admin_projects_project_id_remote_users",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "display_name": {
+                    "maxLength": 80,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "expires_in_days": {
+                    "description": "The account stops working this many days from now. 0 or left out: never. Needs an app with accounts that expire.",
+                    "maximum": 3650,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "role": {
+                    "description": "viewer needs an app with view-only accounts.",
+                    "enum": [
+                      "user",
+                      "viewer",
+                      "admin"
+                    ],
+                    "type": "string"
+                  },
+                  "user_id": {
+                    "description": "Someone here to put on the project with it, so their Open signs into it. Left out: a guest with no account here.",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "display_name",
+                  "role"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "login_url": {
+                      "description": "Signs the new account in. It works once, for 15 minutes. A credential: treat it like a password.",
+                      "type": "string"
+                    },
+                    "remote_user_id": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "login_url",
+                    "remote_user_id"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Make an account on a project",
+        "tags": [
+          "Manage project"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/delete": {
+      "post": {
+        "description": "Delete the account on the project itself, with everything it held there. Anyone here it belonged to comes off the project. It cannot be undone.",
+        "operationId": "post_api_admin_projects_project_id_remote_users_remote_user_id_delete",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "in": "path",
+            "name": "remote_user_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete an account on a project",
+        "tags": [
+          "Manage project"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/disabled": {
+      "post": {
+        "description": "disabled true stops the account signing in there, and ends its sessions.",
+        "operationId": "post_api_admin_projects_project_id_remote_users_remote_user_id_disabled",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "in": "path",
+            "name": "remote_user_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "disabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "disabled"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Disable or enable an account on a project",
+        "tags": [
+          "Manage project"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/expiry": {
+      "post": {
+        "description": "The account stops working expires_in_days from now; 0 means never. Needs an app with accounts that expire.",
+        "operationId": "post_api_admin_projects_project_id_remote_users_remote_user_id_expiry",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "in": "path",
+            "name": "remote_user_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "expires_in_days": {
+                    "description": "Stops working this many days from now. 0: never.",
+                    "maximum": 3650,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expires_in_days"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "expires_at": {
+                      "format": "date-time",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "expires_at",
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Set when an account on a project expires",
+        "tags": [
+          "Manage project"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys": {
+      "get": {
+        "description": "The account's API keys there, never their secrets. Needs an app where the portal's key may make keys.",
+        "operationId": "get_api_admin_projects_project_id_remote_users_remote_user_id_keys",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "in": "path",
+            "name": "remote_user_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "keys": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "expired": {
+                            "type": "boolean"
+                          },
+                          "expires_at": {
+                            "format": "date-time",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "last_used_at": {
+                            "format": "date-time",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "live": {
+                            "type": "boolean"
+                          },
+                          "minted_by_key": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "revoked": {
+                            "type": "boolean"
+                          },
+                          "role": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "created_at",
+                          "expired",
+                          "id",
+                          "live",
+                          "name",
+                          "revoked",
+                          "role"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "keys"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "An account's API keys on a project",
+        "tags": [
+          "Manage project"
+        ],
+        "x-required-role": "admin"
+      },
+      "post": {
+        "description": "An API key for the account on the project, shown once. It always expires, its role is no higher than the account's, and revoking the portal's admin key there revokes it too.",
+        "operationId": "post_api_admin_projects_project_id_remote_users_remote_user_id_keys",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "in": "path",
+            "name": "remote_user_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "expires_in_days": {
+                    "description": "A key made from the portal always expires.",
+                    "maximum": 365,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "name": {
+                    "maxLength": 80,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "role": {
+                    "description": "No higher than the account's own role.",
+                    "enum": [
+                      "user",
+                      "viewer",
+                      "admin"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "expires_in_days",
+                  "name",
+                  "role"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "created_at": {
+                      "format": "date-time",
+                      "type": "string"
+                    },
+                    "credential": {
+                      "type": "string"
+                    },
+                    "expired": {
+                      "type": "boolean"
+                    },
+                    "expires_at": {
+                      "format": "date-time",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "last_used_at": {
+                      "format": "date-time",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "live": {
+                      "type": "boolean"
+                    },
+                    "minted_by_key": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "revoked": {
+                      "type": "boolean"
+                    },
+                    "role": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "created_at",
+                    "credential",
+                    "expired",
+                    "id",
+                    "live",
+                    "name",
+                    "revoked",
+                    "role"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "summary": "Make an API key on a project",
+        "tags": [
+          "Manage project"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link": {
+      "post": {
+        "description": "A fresh login link for one account on the project. It works once, for 15 minutes.",
+        "operationId": "post_api_admin_projects_project_id_remote_users_remote_user_id_login_link",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "in": "path",
+            "name": "remote_user_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "login_url": {
+                      "description": "Open it to sign in to the project. It works once, for 15 minutes. A credential: treat it like a password.",
+                      "type": "string"
+                    },
+                    "project_id": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "login_url",
+                    "project_id"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "A login link for an account on a project",
+        "tags": [
+          "Manage project"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access": {
+      "post": {
+        "description": "End every session, login link and API key the account has there. The account stays enabled; a new login link signs it back in.",
+        "operationId": "post_api_admin_projects_project_id_remote_users_remote_user_id_revoke_access",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "in": "path",
+            "name": "remote_user_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Sign an account out everywhere on a project",
+        "tags": [
+          "Manage project"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/role": {
+      "post": {
+        "description": "admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.",
+        "operationId": "post_api_admin_projects_project_id_remote_users_remote_user_id_role",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "in": "path",
+            "name": "remote_user_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "role": {
+                    "enum": [
+                      "user",
+                      "viewer",
+                      "admin"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "role"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "502": {
+            "$ref": "#/components/responses/E502"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change an account's role on a project",
+        "tags": [
+          "Manage project"
         ],
         "x-required-role": "admin"
       }
@@ -6696,6 +8292,126 @@
         "summary": "Disable or enable a user",
         "tags": [
           "Admin"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/users/{user_id}/project-accounts": {
+      "post": {
+        "description": "For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it.",
+        "operationId": "post_api_admin_users_user_id_project_accounts",
+        "parameters": [
+          {
+            "description": "The account's id here.",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "on_project": {
+                    "description": "Disable their account on every project, or end its sessions, links and keys there.",
+                    "enum": [
+                      "disable",
+                      "revoke"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "on_project"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "results": {
+                      "description": "One per project they are on that the portal made or linked an account for.",
+                      "items": {
+                        "properties": {
+                          "error": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "ok": {
+                            "type": "boolean"
+                          },
+                          "project_id": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "ok",
+                          "project_id"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "results"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Disable someone's accounts on every project",
+        "tags": [
+          "Manage project"
         ],
         "x-required-role": "admin"
       }
@@ -7999,6 +9715,15 @@
                           "description": "false keeps the project from them: it leaves their list, and the portal will not sign them into it.",
                           "type": "boolean"
                         },
+                        "on_project": {
+                          "description": "With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys.",
+                          "enum": [
+                            "keep",
+                            "disable",
+                            "revoke"
+                          ],
+                          "type": "string"
+                        },
                         "project_id": {
                           "description": "The project's id, from GET /api/projects (list_projects over MCP).",
                           "minimum": 1,
@@ -8027,6 +9752,15 @@
                       "allowed": {
                         "description": "false keeps the project from them: it leaves their list, and the portal will not sign them into it.",
                         "type": "boolean"
+                      },
+                      "on_project": {
+                        "description": "With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys.",
+                        "enum": [
+                          "keep",
+                          "disable",
+                          "revoke"
+                        ],
+                        "type": "string"
                       }
                     },
                     "type": "object"
@@ -12367,6 +14101,9 @@
     },
     {
       "name": "Catalog"
+    },
+    {
+      "name": "Manage project"
     },
     {
       "name": "Projects"

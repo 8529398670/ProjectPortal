@@ -73,6 +73,10 @@ type Me struct {
 	IsOwner     bool   `json:"is_owner"`
 	APIKeyName  string `json:"api_key_name"`
 	Version     string `json:"version"`
+	// Contract and Capabilities are portal contract v2 (CROSS_PROJECT.md):
+	// 0 and empty on an app from before it.
+	Contract     int      `json:"contract"`
+	Capabilities []string `json:"capabilities"`
 }
 
 // User is one account as GET /api/admin/users lists it.
@@ -82,6 +86,9 @@ type User struct {
 	Role        string `json:"role"`
 	Disabled    bool   `json:"disabled"`
 	Owner       bool   `json:"owner"`
+	// Contract v2, account_expiry: nil for never, or on an older app.
+	ExpiresAt *time.Time `json:"expires_at"`
+	Expired   bool       `json:"expired"`
 }
 
 type usersPage struct {
@@ -188,8 +195,23 @@ func Health( ctx context.Context , base_url string ) ( err error ) {
 // CreateUser makes an ordinary account named name, and the link that signs it
 // in.
 func CreateUser( ctx context.Context , base_url string , admin_key string , name string ) ( link *Link , err error ) {
+	link , err = CreateUserAs( ctx , base_url , admin_key , NewAccount{ Name: name , Role: "user" } )
+	return
+}
+
+// NewAccount is an account to make: its role, and when it stops working
+// (nil for never; only sent to an app with account_expiry).
+type NewAccount struct {
+	Name      string
+	Role      string
+	ExpiresAt *time.Time
+}
+
+// CreateUserAs is CreateUser with the role and expiry chosen.
+func CreateUserAs( ctx context.Context , base_url string , admin_key string , account NewAccount ) ( link *Link , err error ) {
 	body := linkRequest()
-	body[ "display_name" ] , body[ "role" ] = name , "user"
+	body[ "display_name" ] , body[ "role" ] = account.Name , account.Role
+	if account.ExpiresAt != nil { body[ "account_expires_at" ] = account.ExpiresAt.UTC().Format( time.RFC3339 ) }
 	reply := &loginLink{}
 	if err = call( ctx , base_url , admin_key , http.MethodPost , "/api/admin/users" , body , reply ); err != nil { return }
 	link , err = toLink( base_url , reply )

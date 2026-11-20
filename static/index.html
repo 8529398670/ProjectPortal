@@ -69,6 +69,7 @@
             <h3 class="sidebar-heading" data-i18n="nav.admin_heading"></h3>
             <a class="nav-link" href="/admin/catalog" data-nav="catalog"><i class="bi bi-collection" aria-hidden="true"></i><span data-i18n="nav.catalog"></span></a>
             <a class="nav-link" href="/admin/access" data-nav="access"><i class="bi bi-person-check" aria-hidden="true"></i><span data-i18n="nav.access"></span></a>
+            <a class="nav-link" href="/admin/manage" data-nav="manage"><i class="bi bi-tools" aria-hidden="true"></i><span data-i18n="nav.manage"></span></a>
             <a class="nav-link" href="/admin/users" data-nav="users"><i class="bi bi-people" aria-hidden="true"></i><span data-i18n="nav.users"></span></a>
             <a class="nav-link" href="/admin/invite-links" data-nav="invite-links"><i class="bi bi-link-45deg" aria-hidden="true"></i><span data-i18n="nav.invite_links"></span></a>
             <a class="nav-link" href="/admin/api-keys" data-nav="all-keys"><i class="bi bi-shield-lock" aria-hidden="true"></i><span data-i18n="nav.all_keys"></span></a>
@@ -800,6 +801,202 @@
           </section>
         </section>
 
+        <!-- One project's own accounts, invite links and API keys, run through
+             the portal's admin key there; see manage.js. -->
+        <section class="view" data-view="manage" data-path="/admin/manage" id="manage-panel" hidden>
+          <h2 class="view-title" data-i18n="manage.heading"></h2>
+          <p class="view-description" data-i18n="manage.description"></p>
+
+          <section class="card">
+            <div class="card-body">
+              <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-6">
+                  <label for="manage-project" class="form-label" data-i18n="manage.project_label"></label>
+                  <select id="manage-project" class="form-select"></select>
+                </div>
+                <div class="col-12 col-md-6">
+                  <div id="manage-capabilities" class="d-flex flex-wrap gap-1"></div>
+                </div>
+              </div>
+              <div id="manage-behind" class="alert alert-warning small mt-3 mb-0" role="status" hidden></div>
+              <p id="manage-none" class="text-body-secondary mt-3 mb-0" data-i18n="manage.no_projects" hidden></p>
+            </div>
+          </section>
+
+          <div id="manage-body">
+            <ul class="nav nav-tabs mb-3" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="manage-tab-people" data-bs-toggle="tab" data-bs-target="#manage-pane-people" type="button" role="tab" aria-controls="manage-pane-people" aria-selected="true" data-i18n="manage.tab_people"></button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="manage-tab-invites" data-bs-toggle="tab" data-bs-target="#manage-pane-invites" type="button" role="tab" aria-controls="manage-pane-invites" aria-selected="false" data-i18n="manage.tab_invites"></button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="manage-tab-keys" data-bs-toggle="tab" data-bs-target="#manage-pane-keys" type="button" role="tab" aria-controls="manage-pane-keys" aria-selected="false" data-i18n="manage.tab_keys"></button>
+              </li>
+            </ul>
+
+            <div class="tab-content">
+              <div class="tab-pane fade show active" id="manage-pane-people" role="tabpanel" aria-labelledby="manage-tab-people" tabindex="0">
+                <section class="card">
+                  <div class="card-body">
+                    <h3 class="card-title" data-i18n="manage.new_heading"></h3>
+                    <p class="small text-body-secondary" data-i18n="manage.new_description"></p>
+                    <form id="manage-new-form" class="row g-2 align-items-end" novalidate>
+                      <div class="col-12 col-md-4">
+                        <label for="manage-new-name" class="form-label" data-i18n="manage.name_label"></label>
+                        <input id="manage-new-name" class="form-control" type="text" maxlength="80" required autocomplete="off" />
+                      </div>
+                      <div class="col-6 col-md-2">
+                        <label for="manage-new-role" class="form-label" data-i18n="manage.role_label"></label>
+                        <select id="manage-new-role" class="form-select"></select>
+                      </div>
+                      <div class="col-6 col-md-2">
+                        <label for="manage-new-days" class="form-label" data-i18n="manage.days_label"></label>
+                        <input id="manage-new-days" class="form-control" type="number" min="0" max="3650" inputmode="numeric" data-i18n-attr="placeholder:manage.days_never" />
+                      </div>
+                      <div class="col-12 col-md-4 d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary" data-i18n="manage.new_button"></button>
+                        <button type="button" id="manage-guest-button" class="btn btn-outline-secondary" data-i18n="manage.guest_button"></button>
+                      </div>
+                    </form>
+                  </div>
+                </section>
+
+                <section class="card">
+                  <div class="card-body">
+                    <div class="row g-2 align-items-end mb-2">
+                      <div class="col-12 col-md-6">
+                        <h3 class="card-title mb-0" data-i18n="manage.people_heading"></h3>
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <label for="manage-search" class="visually-hidden" data-i18n="manage.search_label"></label>
+                        <input id="manage-search" class="form-control" type="search" autocomplete="off" data-i18n-attr="placeholder:manage.search_label" />
+                      </div>
+                    </div>
+                    <div class="table-responsive">
+                      <table id="manage-people-table" class="table table-hover align-middle mb-0" data-empty="manage.people_empty">
+                        <thead>
+                          <tr>
+                            <th scope="col" data-i18n="manage.table_name"></th>
+                            <th scope="col" data-i18n="manage.table_role"></th>
+                            <th scope="col" data-i18n="manage.table_status"></th>
+                            <th scope="col" data-i18n="manage.table_actions"></th>
+                          </tr>
+                        </thead>
+                        <tbody></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <div class="tab-pane fade" id="manage-pane-invites" role="tabpanel" aria-labelledby="manage-tab-invites" tabindex="0">
+                <p id="manage-invites-off" class="alert alert-secondary small" hidden></p>
+                <div id="manage-invites-on">
+                  <section class="card">
+                    <div class="card-body">
+                      <h3 class="card-title" data-i18n="manage.invite_new_heading"></h3>
+                      <form id="manage-invite-form" class="row g-2 align-items-end" novalidate>
+                        <div class="col-12 col-md-4">
+                          <label for="manage-invite-label" class="form-label" data-i18n="manage.invite_label"></label>
+                          <input id="manage-invite-label" class="form-control" type="text" maxlength="80" required autocomplete="off" />
+                        </div>
+                        <div class="col-4 col-md-2">
+                          <label for="manage-invite-uses" class="form-label" data-i18n="manage.invite_uses"></label>
+                          <input id="manage-invite-uses" class="form-control" type="number" min="1" max="1000" value="10" inputmode="numeric" />
+                        </div>
+                        <div class="col-4 col-md-2">
+                          <label for="manage-invite-days" class="form-label" data-i18n="manage.invite_days"></label>
+                          <input id="manage-invite-days" class="form-control" type="number" min="1" max="365" value="7" inputmode="numeric" />
+                        </div>
+                        <div class="col-4 col-md-2">
+                          <label for="manage-invite-role" class="form-label" data-i18n="manage.role_label"></label>
+                          <select id="manage-invite-role" class="form-select"></select>
+                        </div>
+                        <div class="col-12 col-md-2">
+                          <button type="submit" class="btn btn-primary w-100" data-i18n="manage.invite_button"></button>
+                        </div>
+                      </form>
+                    </div>
+                  </section>
+                  <section class="card">
+                    <div class="card-body">
+                      <h3 class="card-title" data-i18n="manage.invites_heading"></h3>
+                      <div class="table-responsive">
+                        <table id="manage-invites-table" class="table table-hover align-middle mb-0" data-empty="manage.invites_empty">
+                          <thead>
+                            <tr>
+                              <th scope="col" data-i18n="manage.table_label"></th>
+                              <th scope="col" data-i18n="manage.table_used"></th>
+                              <th scope="col" data-i18n="manage.table_role"></th>
+                              <th scope="col" data-i18n="manage.table_expires"></th>
+                              <th scope="col" data-i18n="manage.table_actions"></th>
+                            </tr>
+                          </thead>
+                          <tbody></tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <div class="tab-pane fade" id="manage-pane-keys" role="tabpanel" aria-labelledby="manage-tab-keys" tabindex="0">
+                <p id="manage-keys-off" class="alert alert-secondary small" hidden></p>
+                <div id="manage-keys-on">
+                  <section class="card">
+                    <div class="card-body">
+                      <h3 class="card-title" data-i18n="manage.key_new_heading"></h3>
+                      <p class="small text-body-secondary" data-i18n="manage.key_new_description"></p>
+                      <form id="manage-key-form" class="row g-2 align-items-end" novalidate>
+                        <div class="col-12 col-md-3">
+                          <label for="manage-key-account" class="form-label" data-i18n="manage.key_account"></label>
+                          <select id="manage-key-account" class="form-select"></select>
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label for="manage-key-name" class="form-label" data-i18n="manage.key_name"></label>
+                          <input id="manage-key-name" class="form-control" type="text" maxlength="80" required autocomplete="off" />
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label for="manage-key-role" class="form-label" data-i18n="manage.role_label"></label>
+                          <select id="manage-key-role" class="form-select"></select>
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label for="manage-key-days" class="form-label" data-i18n="manage.key_days"></label>
+                          <input id="manage-key-days" class="form-control" type="number" min="1" max="365" value="90" inputmode="numeric" required />
+                        </div>
+                        <div class="col-12 col-md-2">
+                          <button type="submit" class="btn btn-primary w-100" data-i18n="manage.key_button"></button>
+                        </div>
+                      </form>
+                    </div>
+                  </section>
+                  <section class="card">
+                    <div class="card-body">
+                      <h3 class="card-title" id="manage-keys-heading"></h3>
+                      <div class="table-responsive">
+                        <table id="manage-keys-table" class="table table-hover align-middle mb-0" data-empty="manage.keys_empty">
+                          <thead>
+                            <tr>
+                              <th scope="col" data-i18n="manage.table_name"></th>
+                              <th scope="col" data-i18n="manage.table_role"></th>
+                              <th scope="col" data-i18n="manage.table_status"></th>
+                              <th scope="col" data-i18n="manage.table_expires"></th>
+                              <th scope="col" data-i18n="manage.table_actions"></th>
+                            </tr>
+                          </thead>
+                          <tbody></tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section class="view" data-view="users" data-path="/admin/users" id="admin-panel" hidden>
           <h2 class="view-title" data-i18n="admin.heading"></h2>
           <p class="view-description" data-i18n="admin.description"></p>
@@ -1296,6 +1493,7 @@
   <script src="/js/projects.js"></script>
   <script src="/js/catalog.js"></script>
   <script src="/js/access.js"></script>
+  <script src="/js/manage.js"></script>
   <script src="/js/invites.js"></script>
   <script src="/js/logs.js"></script>
   <script src="/js/jobs.js"></script>

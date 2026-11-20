@@ -45,6 +45,11 @@ type Project struct {
 	KeyStatus string     `json:"key_status,omitempty"` // ok, invalid, not_admin, missing
 	CheckNote string     `json:"check_note,omitempty"`
 	CheckedAt *time.Time `json:"checked_at,omitempty"`
+	// What the app said it supports, from /api/me with the admin key at the
+	// last check that got that far (portal contract v2: 0 and none before it).
+	Version      string   `json:"version,omitempty"`
+	Contract     int      `json:"contract,omitempty"`
+	Capabilities []string `json:"capabilities,omitempty"`
 	SoftDelete
 }
 
@@ -290,6 +295,16 @@ func RecordCheck( store *db.Store , project_id uint64 , health string , key_stat
 		return
 	} )
 	if err != nil { project = nil }
+	return
+}
+
+// RecordContract keeps what an app said it is and supports.
+func RecordContract( store *db.Store , project_id uint64 , version string , contract int , capabilities []string ) ( err error ) {
+	err = store.UpdateValue( db.BucketProjects , encryption.Uint64ToBytes( project_id ) , func() any { return &Project{} } , func( item any ) ( mutate_err error ) {
+		project := item.( *Project )
+		project.Version , project.Contract , project.Capabilities = version , contract , slices.Clone( capabilities )
+		return
+	} )
 	return
 }
 

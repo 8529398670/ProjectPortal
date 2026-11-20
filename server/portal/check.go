@@ -32,6 +32,7 @@ func Check( store *db.Store , secret_key string , project *models.Project ) ( ch
 		switch {
 		case key_err == nil && me.Role == models.RoleAdmin:
 			key_status = models.KeyOK
+			if err = models.RecordContract( store , project.ID , me.Version , me.Contract , me.Capabilities ); err != nil { return }
 		case key_err == nil:
 			key_status , note = models.KeyNotAdmin , "the key works, but only at role "+me.Role
 		case errors.As( key_err , &remote_err ) && remote_err.Unauthorized():

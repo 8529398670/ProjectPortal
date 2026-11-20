@@ -120,12 +120,23 @@ const Catalog = {
       body.appendChild( Dom.el( "tr" , { children: [
         Dom.el( "td" , { children: [ name ] } ),
         Dom.el( "td" , { children: [ link ] } ),
-        Dom.el( "td" , { children: [ this.keyBadge( project ) , down ? null : note ].filter( Boolean ) } ),
+        Dom.el( "td" , { children: [ this.keyBadge( project ) , down ? null : note , this.contract( project ) ].filter( Boolean ) } ),
         Dom.el( "td" , { children: [ this.healthBadge( project ) , down ? note : null , Dom.el( "div" , { class: "small text-body-secondary" , children: [ Dom.when( project.checked_at , I18n.get( "catalog.never_checked" ) ) ] } ) ].filter( Boolean ) } ),
         Dom.el( "td" , { text: String( project.members ) } ),
         Dom.el( "td" , { children: [ this.actions( project ) ] } ),
       ] } ) );
     } );
+  },
+
+  // Whether Manage project can do everything there (portal contract v2), or
+  // which upgrade it is waiting on. Nothing before the first good check.
+  contract( project ) {
+    if ( project.key_status !== "ok" ) return null;
+    const all = [ "viewer_role" , "account_expiry" , "invite_links" , "key_minting" , "key_sign_in" ];
+    const missing = all.filter( ( capability ) => !( project.capabilities || [] ).includes( capability ) );
+    const text = missing.length === 0 ? I18n.get( "catalog.contract_ok" )
+      : I18n.get( "catalog.contract_behind" ).replace( "{missing}" , () => missing.map( ( capability ) => I18n.get( "manage.cap_" + capability ) ).join( ", " ) );
+    return Dom.el( "div" , { class: "small " + ( missing.length ? "text-warning-emphasis" : "text-body-secondary" ) , text: text } );
   },
 
   // GitHub, the board and its view-only link, as small icons under the address.
@@ -152,6 +163,7 @@ const Catalog = {
     } );
     return Dom.rowActions( project.name , [
       button( "catalog.check_button" , () => this.onCheck( project ) ),
+      button( "catalog.manage_button" , () => Manage.showFor( project.id ) ),
       button( "catalog.access_button" , () => Access.showFor( project.id ) ),
       button( "catalog.edit_button" , () => this.onEdit( project ) ),
       button( "catalog.key_button" , () => this.onKey( project ) ),

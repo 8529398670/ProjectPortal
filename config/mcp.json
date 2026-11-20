@@ -44,6 +44,42 @@
         "destructiveHint": true,
         "openWorldHint": false,
         "readOnlyHint": false,
+        "title": "Disable someone's accounts on every project (admin)"
+      },
+      "description": "For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "on_project": {
+            "description": "Disable their account on every project, or end its sessions, links and keys there.",
+            "enum": [
+              "disable",
+              "revoke"
+            ],
+            "type": "string"
+          },
+          "user_id": {
+            "description": "The account's id here.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "on_project",
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_act_on_project_accounts",
+      "route": "POST /api/admin/users/{user_id}/project-accounts",
+      "title": "Disable someone's accounts on every project (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false,
         "title": "Stop an account's login link working (admin)"
       },
       "description": "Void an account's live login link without making a new one: a link that went somewhere it should not have. Devices it already signed in stay signed in; admin_revoke_access ends those too. Answers with removed: 0 or 1.",
@@ -178,6 +214,113 @@
       "name": "admin_create_invite_link",
       "route": "POST /api/admin/invite-links",
       "title": "Create an invite link (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Make an invite link on a project (admin)"
+      },
+      "description": "One link a group can join the project itself through: up to max_uses accounts, for days days. role viewer makes them view only, on an app that has it. Answers join_url: hand it out; it is shown only once.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "maximum": 365,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "max_uses": {
+            "maximum": 1000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "role": {
+            "description": "What people who join through it become. Default user.",
+            "enum": [
+              "user",
+              "viewer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "days",
+          "label",
+          "max_uses",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_create_remote_invite_link",
+      "route": "POST /api/admin/projects/{project_id}/invite-links",
+      "title": "Make an invite link on a project (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Make an account on a project (admin)"
+      },
+      "description": "Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it. Answers login_url: hand it to the person it is for (it works once, for 15 minutes).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "expires_in_days": {
+            "description": "The account stops working this many days from now. 0 or left out: never. Needs an app with accounts that expire.",
+            "maximum": 3650,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "role": {
+            "description": "viewer needs an app with view-only accounts.",
+            "enum": [
+              "user",
+              "viewer",
+              "admin"
+            ],
+            "type": "string"
+          },
+          "user_id": {
+            "description": "Someone here to put on the project with it, so their Open signs into it. Left out: a guest with no account here.",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "display_name",
+          "project_id",
+          "role"
+        ],
+        "type": "object"
+      },
+      "name": "admin_create_remote_user",
+      "route": "POST /api/admin/projects/{project_id}/remote-users",
+      "title": "Make an account on a project (admin)"
     },
     {
       "adminOnly": true,
@@ -338,6 +481,39 @@
         "destructiveHint": true,
         "openWorldHint": false,
         "readOnlyHint": false,
+        "title": "Delete an account on a project (admin)"
+      },
+      "description": "Delete the account on the project itself, with everything it held there. Anyone here it belonged to comes off the project. It cannot be undone.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "remote_user_id": {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "remote_user_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_delete_remote_user",
+      "route": "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/delete",
+      "title": "Delete an account on a project (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false,
         "title": "Delete an account (admin)"
       },
       "description": "Remove an account for good, with its sessions, login link and API keys. Cannot be undone: admin_set_user_disabled is the reversible version. Only the owner deletes an admin; nobody deletes the owner or themselves.",
@@ -433,14 +609,28 @@
         "readOnlyHint": false,
         "title": "Put someone on a project (admin)"
       },
-      "description": "Make someone an account on the project now, as if they had joined. They sign in from their own list; no link is handed to you.",
+      "description": "Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
+          "expires_in_days": {
+            "description": "Their account there stops working this many days from now. 0 or left out: never.",
+            "maximum": 3650,
+            "minimum": 0,
+            "type": "integer"
+          },
           "project_id": {
             "description": "The project's id, from GET /api/projects (list_projects over MCP).",
             "minimum": 1,
             "type": "integer"
+          },
+          "role": {
+            "description": "Their role on the project. Default user; viewer (view only) needs an app that has it.",
+            "enum": [
+              "user",
+              "viewer"
+            ],
+            "type": "string"
           },
           "user_id": {
             "description": "The account's id here.",
@@ -602,6 +792,66 @@
       "name": "admin_list_invite_links",
       "route": "GET /api/admin/invite-links",
       "title": "List invite links (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "A project's invite links (admin)"
+      },
+      "description": "The invite links on the project itself. Needs an app with invite links switched on.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_list_remote_invite_links",
+      "route": "GET /api/admin/projects/{project_id}/invite-links",
+      "title": "A project's invite links (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "An account's API keys on a project (admin)"
+      },
+      "description": "The account's API keys there, never their secrets. Needs an app where the portal's key may make keys.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "remote_user_id": {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "remote_user_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_list_remote_keys",
+      "route": "GET /api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys",
+      "title": "An account's API keys on a project (admin)"
     },
     {
       "adminOnly": true,
@@ -870,15 +1120,57 @@
     {
       "adminOnly": true,
       "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "A login link for an account on a project (admin)"
+      },
+      "description": "A fresh login link for one account on the project. It works once, for 15 minutes. Answers login_url: hand it to the person it is for.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "remote_user_id": {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "remote_user_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_remote_login_link",
+      "route": "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link",
+      "title": "A login link for an account on a project (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
         "destructiveHint": true,
         "openWorldHint": false,
         "readOnlyHint": false,
         "title": "Take someone off a project here (admin)"
       },
-      "description": "Forget someone's account on the project, and their own key for it. Their account on the project itself stays: disable it there to stop them signing in with what they already have.",
+      "description": "Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
+          "on_project": {
+            "description": "What happens to their account on the project itself: keep it (the default), disable it, or end its sessions, links and keys.",
+            "enum": [
+              "keep",
+              "disable",
+              "revoke"
+            ],
+            "type": "string"
+          },
           "project_id": {
             "description": "The project's id, from GET /api/projects (list_projects over MCP).",
             "minimum": 1,
@@ -1310,6 +1602,107 @@
         "destructiveHint": true,
         "openWorldHint": false,
         "readOnlyHint": false,
+        "title": "Sign an account out everywhere on a project (admin)"
+      },
+      "description": "End every session, login link and API key the account has there. The account stays enabled; a new login link signs it back in.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "remote_user_id": {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "remote_user_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_revoke_remote_access",
+      "route": "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access",
+      "title": "Sign an account out everywhere on a project (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Stop an invite link on a project (admin)"
+      },
+      "description": "The link stops working. Accounts already made through it stay.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "link_id": {
+            "description": "The link's id, from admin_list_remote_invite_links.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "link_id",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_revoke_remote_invite_link",
+      "route": "POST /api/admin/projects/{project_id}/invite-links/{link_id}/revoke",
+      "title": "Stop an invite link on a project (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Revoke an API key on a project (admin)"
+      },
+      "description": "The key stops working there now, and so does every key it made.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "key_id": {
+            "description": "The key's id, from admin_list_remote_keys.",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key_id",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_revoke_remote_key",
+      "route": "POST /api/admin/projects/{project_id}/keys/{key_id}/revoke",
+      "title": "Revoke an API key on a project (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false,
         "title": "Sign out one of an account's devices (admin)"
       },
       "description": "End one of an account's sessions, rather than all of them with admin_revoke_access.",
@@ -1447,6 +1840,15 @@
             "description": "false keeps the project from them: it leaves their list, and the portal will not sign them into it.",
             "type": "boolean"
           },
+          "on_project": {
+            "description": "With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys.",
+            "enum": [
+              "keep",
+              "disable",
+              "revoke"
+            ],
+            "type": "string"
+          },
           "project_id": {
             "description": "The project's id, from GET /api/projects (list_projects over MCP).",
             "minimum": 1,
@@ -1490,6 +1892,15 @@
                   "description": "false keeps the project from them: it leaves their list, and the portal will not sign them into it.",
                   "type": "boolean"
                 },
+                "on_project": {
+                  "description": "With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys.",
+                  "enum": [
+                    "keep",
+                    "disable",
+                    "revoke"
+                  ],
+                  "type": "string"
+                },
                 "project_id": {
                   "description": "The project's id, from GET /api/projects (list_projects over MCP).",
                   "minimum": 1,
@@ -1518,6 +1929,15 @@
               "allowed": {
                 "description": "false keeps the project from them: it leaves their list, and the portal will not sign them into it.",
                 "type": "boolean"
+              },
+              "on_project": {
+                "description": "With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys.",
+                "enum": [
+                  "keep",
+                  "disable",
+                  "revoke"
+                ],
+                "type": "string"
               }
             },
             "type": "object"
@@ -1531,6 +1951,125 @@
       "name": "admin_set_project_access_bulk",
       "route": "POST /api/bulk/admin/projects/access",
       "title": "Let someone use a project, or not, for many at once (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Disable or enable an account on a project (admin)"
+      },
+      "description": "disabled true stops the account signing in there, and ends its sessions.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "disabled": {
+            "type": "boolean"
+          },
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "remote_user_id": {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "disabled",
+          "project_id",
+          "remote_user_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_set_remote_disabled",
+      "route": "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/disabled",
+      "title": "Disable or enable an account on a project (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Set when an account on a project expires (admin)"
+      },
+      "description": "The account stops working expires_in_days from now; 0 means never. Needs an app with accounts that expire.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_in_days": {
+            "description": "Stops working this many days from now. 0: never.",
+            "maximum": 3650,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "remote_user_id": {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expires_in_days",
+          "project_id",
+          "remote_user_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_set_remote_expiry",
+      "route": "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/expiry",
+      "title": "Set when an account on a project expires (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Change an account's role on a project (admin)"
+      },
+      "description": "admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "remote_user_id": {
+            "description": "The account's id on the project, from admin_list_remote_users.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "viewer",
+              "admin"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "remote_user_id",
+          "role"
+        ],
+        "type": "object"
+      },
+      "name": "admin_set_remote_role",
+      "route": "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/role",
+      "title": "Change an account's role on a project (admin)"
     },
     {
       "adminOnly": true,

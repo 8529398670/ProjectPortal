@@ -214,6 +214,7 @@ const App = {
       loading.push( this.refreshUsers() );
       loading.push( Catalog.init( me ) );
       loading.push( Access.init( me ) );
+      loading.push( Manage.init( me ) );
       loading.push( Invites.init( me ) );
       loading.push( Logs.init( me ) );
       loading.push( Jobs.init( me ) );
@@ -426,6 +427,13 @@ const App = {
       // it ends every session, unused login link, and API key, and leaves the
       // account enabled. Not offered on your own row -- the server refuses
       // that, since it would sign you out with no way back in.
+      // Their accounts on every catalog project, before disabling or deleting
+      // them here: the portal's key disables them there, or signs them out.
+      const projectsButton = isProtected ? null : Dom.el( "button" , {
+        class: "btn btn-sm btn-outline-danger",
+        text: I18n.get( "admin.projects_off_button" ),
+        on: { click: () => App.onProjectAccountsOff( user ) },
+      } );
       const revokeButton = isProtected ? null : Dom.el( "button" , {
         class: "btn btn-sm btn-outline-danger",
         text: I18n.get( "admin.revoke_button" ),
@@ -577,12 +585,31 @@ const App = {
             roleButton,
             resetButton,
             revokeButton,
+            projectsButton,
             toggleButton,
             deleteButton,
           ] ),
         ] } ),
       ] } ) );
     } );
+  },
+
+  async onProjectAccountsOff( user ) {
+    const choice = await Dom.form( {
+      title: I18n.get( "admin.projects_off_heading" ).replace( "{name}" , () => user.display_name ),
+      submit: I18n.get( "access.remove_go" ),
+      fields: [ { name: "on_project" , type: "select" , label: I18n.get( "access.on_project_label" ) ,
+        help: I18n.get( "admin.projects_off_help" ) , value: "disable" ,
+        options: [ "disable" , "revoke" ].map( ( value ) => ( { value: value , label: I18n.get( "access.on_project_" + value ) } ) ) } ],
+      save: ( values ) => Api.actOnProjectAccounts( user.id , values.on_project ),
+    } );
+    if ( choice === null ) return;
+    const failed = choice.results.filter( ( result ) => !result.ok );
+    if ( failed.length ) {
+      this.showError( failed.map( ( result ) => result.error ).join( " " ) );
+      return;
+    }
+    Dom.toast( I18n.get( "admin.projects_off_done" ).replace( "{count}" , () => String( choice.results.length ) ) , "ok" );
   },
 
   // message may be an error code the server answered with (pin_wrong,

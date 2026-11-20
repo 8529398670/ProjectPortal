@@ -195,13 +195,15 @@ func ( handlers *Handlers ) joinProject( c fiber.Ctx , in *projectIDPath ) ( rep
 	project , refused := handlers.visibleProject( c , in.ProjectID )
 	if refused != nil { return nil , refused }
 	user := security.UserFrom( c )
-	reply , err = handlers.joinAs( c , project , user , true )
+	reply , err = handlers.joinAs( c , project , user , true , remoteRoleUser , nil )
 	return
 }
 
 // joinAs is joining for user: by themself (with_link), or an admin granting
-// it (no link: that is the person's to ask for).
-func ( handlers *Handlers ) joinAs( c fiber.Ctx , project *models.Project , user *models.User , with_link bool ) ( reply *projectLinkReply , err error ) {
+// it (no link: that is the person's to ask for), at role and until
+// expires_at (nil: never). A returning member keeps the account they had,
+// as it was.
+func ( handlers *Handlers ) joinAs( c fiber.Ctx , project *models.Project , user *models.User , with_link bool , role string , expires_at *time.Time ) ( reply *projectLinkReply , err error ) {
 	lock_key := [2]uint64{ user.ID , project.ID }
 	if _ , busy := joinLocks.LoadOrStore( lock_key , true ); busy {
 		err = refuse( fiber.StatusConflict , "already joining this project" )
@@ -221,14 +223,14 @@ func ( handlers *Handlers ) joinAs( c fiber.Ctx , project *models.Project , user
 
 	var link *remote.Link
 	var remote_err error
-	membership := models.Membership{ UserID: user.ID , ProjectID: project.ID , Via: models.ViaJoined , RemoteName: user.DisplayName , RemoteRole: models.RoleUser }
+	membership := models.Membership{ UserID: user.ID , ProjectID: project.ID , Via: models.ViaJoined , RemoteName: user.DisplayName , RemoteRole: role , RemoteExpiresAt: expires_at }
 	if existing != nil && existing.RemoteUserID != 0 {
 		// Left earlier: the account there is still theirs.
 		membership = *existing
 		membership.LeftAt = nil
 		link , remote_err = remote.ReissueLogin( ctx , project.BaseURL , key , existing.RemoteUserID )
 	} else {
-		link , remote_err = remote.CreateUser( ctx , project.BaseURL , key , user.DisplayName )
+		link , remote_err = remote.CreateUserAs( ctx , project.BaseURL , key , remote.NewAccount{ Name: user.DisplayName , Role: role , ExpiresAt: expires_at } )
 		if link != nil { membership.RemoteUserID = link.RemoteUserID }
 	}
 	if remote_err != nil { return nil , handlers.remoteRefusal( project , remote_err , true ) }

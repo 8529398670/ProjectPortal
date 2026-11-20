@@ -12,14 +12,18 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 
 | Tool | Route | Who | What |
 |---|---|---|---|
+| [`admin_act_on_project_accounts`](#admin_act_on_project_accounts) | [`POST /api/admin/users/{user_id}/project-accounts`](api.md#post-apiadminusersuser_idproject-accounts) | admin keys | Disable someone's accounts on every project (admin) |
 | [`admin_cancel_login_link`](#admin_cancel_login_link) | [`POST /api/admin/users/{user_id}/cancel-login-link`](api.md#post-apiadminusersuser_idcancel-login-link) | admin keys | Stop an account's login link working (admin) |
 | [`admin_cancel_login_link_bulk`](#admin_cancel_login_link_bulk) | [`POST /api/bulk/admin/users/cancel-login-link`](api.md#post-apibulkadminuserscancel-login-link) | admin keys | Stop an account's login link working, for many at once (admin) |
 | [`admin_check_project`](#admin_check_project) | [`POST /api/admin/projects/{project_id}/check`](api.md#post-apiadminprojectsproject_idcheck) | admin keys | Check a project (admin) |
 | [`admin_create_invite_link`](#admin_create_invite_link) | [`POST /api/admin/invite-links`](api.md#post-apiadmininvite-links) | admin keys | Create an invite link (admin) |
+| [`admin_create_remote_invite_link`](#admin_create_remote_invite_link) | [`POST /api/admin/projects/{project_id}/invite-links`](api.md#post-apiadminprojectsproject_idinvite-links) | admin keys | Make an invite link on a project (admin) |
+| [`admin_create_remote_user`](#admin_create_remote_user) | [`POST /api/admin/projects/{project_id}/remote-users`](api.md#post-apiadminprojectsproject_idremote-users) | admin keys | Make an account on a project (admin) |
 | [`admin_create_user`](#admin_create_user) | [`POST /api/admin/users`](api.md#post-apiadminusers) | admin keys | Create an account (admin) |
 | [`admin_delete_invite_link`](#admin_delete_invite_link) | [`POST /api/admin/invite-links/{link_id}/delete`](api.md#post-apiadmininvite-linkslink_iddelete) | admin keys | Delete an invite link (admin) |
 | [`admin_delete_invite_link_bulk`](#admin_delete_invite_link_bulk) | [`POST /api/bulk/admin/invite-links/delete`](api.md#post-apibulkadmininvite-linksdelete) | admin keys | Delete an invite link, for many at once (admin) |
 | [`admin_delete_project`](#admin_delete_project) | [`POST /api/admin/projects/{project_id}/delete`](api.md#post-apiadminprojectsproject_iddelete) | admin keys | Delete a project (admin) |
+| [`admin_delete_remote_user`](#admin_delete_remote_user) | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/delete`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_iddelete) | admin keys | Delete an account on a project (admin) |
 | [`admin_delete_user`](#admin_delete_user) | [`POST /api/admin/users/{user_id}/delete`](api.md#post-apiadminusersuser_iddelete) | admin keys | Delete an account (admin) |
 | [`admin_delete_user_bulk`](#admin_delete_user_bulk) | [`POST /api/bulk/admin/users/delete`](api.md#post-apibulkadminusersdelete) | admin keys | Delete an account, for many at once (admin) |
 | [`admin_get_theme_defaults`](#admin_get_theme_defaults) | [`GET /api/admin/theme-defaults`](api.md#get-apiadmintheme-defaults) | admin keys | Default themes (admin) |
@@ -27,12 +31,15 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 | [`admin_link_remote_user`](#admin_link_remote_user) | [`POST /api/admin/projects/{project_id}/link/{user_id}`](api.md#post-apiadminprojectsproject_idlinkuser_id) | admin keys | Match someone to their account on a project (admin) |
 | [`admin_list_catalog`](#admin_list_catalog) | [`GET /api/admin/projects`](api.md#get-apiadminprojects) | admin keys | The catalog (admin) |
 | [`admin_list_invite_links`](#admin_list_invite_links) | [`GET /api/admin/invite-links`](api.md#get-apiadmininvite-links) | admin keys | List invite links (admin) |
+| [`admin_list_remote_invite_links`](#admin_list_remote_invite_links) | [`GET /api/admin/projects/{project_id}/invite-links`](api.md#get-apiadminprojectsproject_idinvite-links) | admin keys | A project's invite links (admin) |
+| [`admin_list_remote_keys`](#admin_list_remote_keys) | [`GET /api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys`](api.md#get-apiadminprojectsproject_idremote-usersremote_user_idkeys) | admin keys | An account's API keys on a project (admin) |
 | [`admin_list_remote_users`](#admin_list_remote_users) | [`GET /api/admin/projects/{project_id}/remote-users`](api.md#get-apiadminprojectsproject_idremote-users) | admin keys | A project's own accounts (admin) |
 | [`admin_list_user_sessions`](#admin_list_user_sessions) | [`GET /api/admin/users/{user_id}/sessions`](api.md#get-apiadminusersuser_idsessions) | admin keys | An account's signed-in devices (admin) |
 | [`admin_list_users`](#admin_list_users) | [`GET /api/admin/users`](api.md#get-apiadminusers) | admin keys | List users (admin) |
 | [`admin_order_catalog`](#admin_order_catalog) | [`POST /api/admin/projects/order`](api.md#post-apiadminprojectsorder) | admin keys | Order the catalog (admin) |
 | [`admin_project_access`](#admin_project_access) | [`GET /api/admin/projects/{project_id}/access`](api.md#get-apiadminprojectsproject_idaccess) | admin keys | Who may use a project (admin) |
 | [`admin_reissue_login`](#admin_reissue_login) | [`POST /api/admin/users/{user_id}/reissue-login`](api.md#post-apiadminusersuser_idreissue-login) | admin keys | A new login link for an account (admin) |
+| [`admin_remote_login_link`](#admin_remote_login_link) | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_idlogin-link) | admin keys | A login link for an account on a project (admin) |
 | [`admin_remove_project_member`](#admin_remove_project_member) | [`POST /api/admin/projects/{project_id}/members/{user_id}/remove`](api.md#post-apiadminprojectsproject_idmembersuser_idremove) | admin keys | Take someone off a project here (admin) |
 | [`admin_rename_invite_link`](#admin_rename_invite_link) | [`POST /api/admin/invite-links/{link_id}/rename`](api.md#post-apiadmininvite-linkslink_idrename) | admin keys | Rename an invite link (admin) |
 | [`admin_rename_user`](#admin_rename_user) | [`POST /api/admin/users/{user_id}/rename`](api.md#post-apiadminusersuser_idrename) | admin keys | Rename someone (admin) |
@@ -45,11 +52,17 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 | [`admin_revoke_access_bulk`](#admin_revoke_access_bulk) | [`POST /api/bulk/admin/users/revoke-access`](api.md#post-apibulkadminusersrevoke-access) | admin keys | Revoke a user's access, for many at once (admin) |
 | [`admin_revoke_invite_link`](#admin_revoke_invite_link) | [`POST /api/admin/invite-links/{link_id}/revoke`](api.md#post-apiadmininvite-linkslink_idrevoke) | admin keys | Switch off an invite link (admin) |
 | [`admin_revoke_invite_link_bulk`](#admin_revoke_invite_link_bulk) | [`POST /api/bulk/admin/invite-links/revoke`](api.md#post-apibulkadmininvite-linksrevoke) | admin keys | Switch off an invite link, for many at once (admin) |
+| [`admin_revoke_remote_access`](#admin_revoke_remote_access) | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_idrevoke-access) | admin keys | Sign an account out everywhere on a project (admin) |
+| [`admin_revoke_remote_invite_link`](#admin_revoke_remote_invite_link) | [`POST /api/admin/projects/{project_id}/invite-links/{link_id}/revoke`](api.md#post-apiadminprojectsproject_idinvite-linkslink_idrevoke) | admin keys | Stop an invite link on a project (admin) |
+| [`admin_revoke_remote_key`](#admin_revoke_remote_key) | [`POST /api/admin/projects/{project_id}/keys/{key_id}/revoke`](api.md#post-apiadminprojectsproject_idkeyskey_idrevoke) | admin keys | Revoke an API key on a project (admin) |
 | [`admin_revoke_user_session`](#admin_revoke_user_session) | [`POST /api/admin/users/{user_id}/sessions/{session_id}/revoke`](api.md#post-apiadminusersuser_idsessionssession_idrevoke) | admin keys | Sign out one of an account's devices (admin) |
 | [`admin_revoke_user_session_bulk`](#admin_revoke_user_session_bulk) | [`POST /api/bulk/admin/users/sessions/revoke`](api.md#post-apibulkadminuserssessionsrevoke) | admin keys | Sign out one of an account's devices, for many at once (admin) |
 | [`admin_set_invite_link_limits`](#admin_set_invite_link_limits) | [`POST /api/admin/invite-links/{link_id}/limits`](api.md#post-apiadmininvite-linkslink_idlimits) | admin keys | Change an invite link's places and expiry (admin) |
 | [`admin_set_project_access`](#admin_set_project_access) | [`POST /api/admin/projects/{project_id}/access/{user_id}`](api.md#post-apiadminprojectsproject_idaccessuser_id) | admin keys | Let someone use a project, or not (admin) |
 | [`admin_set_project_access_bulk`](#admin_set_project_access_bulk) | [`POST /api/bulk/admin/projects/access`](api.md#post-apibulkadminprojectsaccess) | admin keys | Let someone use a project, or not, for many at once (admin) |
+| [`admin_set_remote_disabled`](#admin_set_remote_disabled) | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/disabled`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_iddisabled) | admin keys | Disable or enable an account on a project (admin) |
+| [`admin_set_remote_expiry`](#admin_set_remote_expiry) | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/expiry`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_idexpiry) | admin keys | Set when an account on a project expires (admin) |
+| [`admin_set_remote_role`](#admin_set_remote_role) | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/role`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_idrole) | admin keys | Change an account's role on a project (admin) |
 | [`admin_set_theme_defaults`](#admin_set_theme_defaults) | [`POST /api/admin/theme-defaults`](api.md#post-apiadmintheme-defaults) | admin keys | Replace the default themes (admin) |
 | [`admin_set_user_disabled`](#admin_set_user_disabled) | [`POST /api/admin/users/{user_id}/disabled`](api.md#post-apiadminusersuser_iddisabled) | admin keys | Disable or enable a user (admin) |
 | [`admin_set_user_disabled_bulk`](#admin_set_user_disabled_bulk) | [`POST /api/bulk/admin/users/disabled`](api.md#post-apibulkadminusersdisabled) | admin keys | Disable or enable a user, for many at once (admin) |
@@ -78,6 +91,23 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 | [`set_themes`](#set_themes) | [`POST /api/account/themes`](api.md#post-apiaccountthemes) | any key | Replace your own themes |
 | [`tag_project`](#tag_project) | [`POST /api/projects/{project_id}/tags`](api.md#post-apiprojectsproject_idtags) | any key | Tag a project |
 | [`whoami`](#whoami) | [`GET /api/me`](api.md#get-apime) | any key | Who am I |
+
+## admin_act_on_project_accounts
+
+For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/users/{user_id}/project-accounts`](api.md#post-apiadminusersuser_idproject-accounts) |
+| Read only | no |
+| Destructive | yes |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `on_project` | string | yes | one of `disable`, `revoke` | Disable their account on every project, or end its sessions, links and keys there. |
+| `user_id` | integer | yes | at least 1 | The account's id here. |
 
 ## admin_cancel_login_link
 
@@ -146,6 +176,46 @@ One link for a group: each person who opens it joins as a new user, up to max_us
 | `days` | integer | yes | 1 to 365 |  |
 | `label` | string | yes | 1 to 80 characters |  |
 | `max_uses` | integer | yes | 1 to 1000 |  |
+
+## admin_create_remote_invite_link
+
+One link a group can join the project itself through: up to max_uses accounts, for days days. role viewer makes them view only, on an app that has it. Answers join_url: hand it out; it is shown only once.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/projects/{project_id}/invite-links`](api.md#post-apiadminprojectsproject_idinvite-links) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `days` | integer | yes | 1 to 365 |  |
+| `label` | string | yes | 1 to 80 characters |  |
+| `max_uses` | integer | yes | 1 to 1000 |  |
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `role` | string | no | one of `user`, `viewer` | What people who join through it become. Default user. |
+
+## admin_create_remote_user
+
+Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it. Answers login_url: hand it to the person it is for (it works once, for 15 minutes).
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/projects/{project_id}/remote-users`](api.md#post-apiadminprojectsproject_idremote-users) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `display_name` | string | yes | 1 to 80 characters |  |
+| `expires_in_days` | integer | no | 0 to 3650 | The account stops working this many days from now. 0 or left out: never. Needs an app with accounts that expire. |
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `role` | string | yes | one of `user`, `viewer`, `admin` | viewer needs an app with view-only accounts. |
+| `user_id` | integer | no | at least 0 | Someone here to put on the project with it, so their Open signs into it. Left out: a guest with no account here. |
 
 ## admin_create_user
 
@@ -216,6 +286,23 @@ Take a project out of the portal, with its key and everyone's membership of it. 
 |---|---|---|---|---|
 | `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
 
+## admin_delete_remote_user
+
+Delete the account on the project itself, with everything it held there. Anyone here it belonged to comes off the project. It cannot be undone.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/delete`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_iddelete) |
+| Read only | no |
+| Destructive | yes |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
 ## admin_delete_user
 
 Remove an account for good, with its sessions, login link and API keys. Cannot be undone: admin_set_user_disabled is the reversible version. Only the owner deletes an admin; nobody deletes the owner or themselves.
@@ -267,7 +354,7 @@ The theme list everyone without their own list sees. themes is null while the bu
 
 ## admin_grant_project
 
-Make someone an account on the project now, as if they had joined. They sign in from their own list; no link is handed to you.
+Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.
 
 |  |  |
 |---|---|
@@ -279,7 +366,9 @@ Make someone an account on the project now, as if they had joined. They sign in 
 
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
+| `expires_in_days` | integer | no | 0 to 3650 | Their account there stops working this many days from now. 0 or left out: never. |
 | `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `role` | string | no | one of `user`, `viewer` | Their role on the project. Default user; viewer (view only) needs an app that has it. |
 | `user_id` | integer | yes | at least 1 | The account's id here. |
 
 ## admin_link_remote_user
@@ -339,6 +428,39 @@ Group invite links, a page at a time: label, places used and left, expiry, and w
 | `offset` | integer | no | at least 0 | Rows to skip: the next value of the previous page. |
 | `q` | string | no |  | Keep links whose label or maker contains this, in any case. |
 | `sort` | string | no | one of `label`, `used`, `expires_at` | Field to sort the whole list by. Rows without it go last. |
+
+## admin_list_remote_invite_links
+
+The invite links on the project itself. Needs an app with invite links switched on.
+
+|  |  |
+|---|---|
+| Route | [`GET /api/admin/projects/{project_id}/invite-links`](api.md#get-apiadminprojectsproject_idinvite-links) |
+| Read only | yes |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+
+## admin_list_remote_keys
+
+The account's API keys there, never their secrets. Needs an app where the portal's key may make keys.
+
+|  |  |
+|---|---|
+| Route | [`GET /api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys`](api.md#get-apiadminprojectsproject_idremote-usersremote_user_idkeys) |
+| Read only | yes |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
 
 ## admin_list_remote_users
 
@@ -451,9 +573,26 @@ For someone who lost their device or their link: a fresh login link for their ac
 | `max_uses` | integer or null | no | 0 to 1000 | Sign-ins the link allows: 1-1000, or 0 for unlimited. Default 1. |
 | `user_id` | integer | yes | at least 1 | The account's id, from GET /api/admin/users (admin_list_users over MCP). |
 
+## admin_remote_login_link
+
+A fresh login link for one account on the project. It works once, for 15 minutes. Answers login_url: hand it to the person it is for.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_idlogin-link) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
 ## admin_remove_project_member
 
-Forget someone's account on the project, and their own key for it. Their account on the project itself stays: disable it there to stop them signing in with what they already have.
+Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.
 
 |  |  |
 |---|---|
@@ -465,6 +604,7 @@ Forget someone's account on the project, and their own key for it. Their account
 
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
+| `on_project` | string | no | one of `keep`, `disable`, `revoke` | What happens to their account on the project itself: keep it (the default), disable it, or end its sessions, links and keys. |
 | `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
 | `user_id` | integer | yes | at least 1 | The account's id here. |
 
@@ -656,6 +796,57 @@ Runs admin_revoke_invite_link once per item: items holds each call's arguments, 
 | `items[].link_id` | string | yes |  | The link's id, from GET /api/admin/invite-links (admin_list_invite_links over MCP). |
 | `shared` | object | no |  | Fields every item gets, unless the item sets its own. |
 
+## admin_revoke_remote_access
+
+End every session, login link and API key the account has there. The account stays enabled; a new login link signs it back in.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_idrevoke-access) |
+| Read only | no |
+| Destructive | yes |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
+## admin_revoke_remote_invite_link
+
+The link stops working. Accounts already made through it stay.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/projects/{project_id}/invite-links/{link_id}/revoke`](api.md#post-apiadminprojectsproject_idinvite-linkslink_idrevoke) |
+| Read only | no |
+| Destructive | yes |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `link_id` | string | yes | 1 to 100 characters | The link's id, from admin_list_remote_invite_links. |
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+
+## admin_revoke_remote_key
+
+The key stops working there now, and so does every key it made.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/projects/{project_id}/keys/{key_id}/revoke`](api.md#post-apiadminprojectsproject_idkeyskey_idrevoke) |
+| Read only | no |
+| Destructive | yes |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `key_id` | string | yes | 1 to 100 characters | The key's id, from admin_list_remote_keys. |
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+
 ## admin_revoke_user_session
 
 End one of an account's sessions, rather than all of them with admin_revoke_access.
@@ -725,6 +916,7 @@ allowed false keeps a listed project from one person: it leaves their list and t
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
 | `allowed` | boolean | yes |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
+| `on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
 | `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
 | `user_id` | integer | yes | at least 1 | The account's id here, from admin_list_users. |
 
@@ -744,10 +936,66 @@ Runs admin_set_project_access once per item: items holds each call's arguments, 
 |---|---|---|---|---|
 | `items` | array of object | yes |  | One entry per thing to change: its id, and any field that differs from shared. |
 | `items[].allowed` | boolean | no |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
+| `items[].on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
 | `items[].project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
 | `items[].user_id` | integer | yes | at least 1 | The account's id here, from admin_list_users. |
 | `shared` | object | no |  | Fields every item gets, unless the item sets its own. |
 | `shared.allowed` | boolean | no |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
+| `shared.on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
+
+## admin_set_remote_disabled
+
+disabled true stops the account signing in there, and ends its sessions.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/disabled`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_iddisabled) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `disabled` | boolean | yes |  |  |
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
+## admin_set_remote_expiry
+
+The account stops working expires_in_days from now; 0 means never. Needs an app with accounts that expire.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/expiry`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_idexpiry) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `expires_in_days` | integer | yes | 0 to 3650 | Stops working this many days from now. 0: never. |
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+
+## admin_set_remote_role
+
+admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/role`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_idrole) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+| `remote_user_id` | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
+| `role` | string | yes | one of `user`, `viewer`, `admin` |  |
 
 ## admin_set_theme_defaults
 

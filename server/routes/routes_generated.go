@@ -296,11 +296,33 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.editProject , handlers.Guard.RequireAdmin , handlers.Guard.RequireSession )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/grant/{user_id}" , apidoc.Op{
 		Summary: "Put someone on a project",
-		Description: "Make someone an account on the project now, as if they had joined. They sign in from their own list; no link is handed to you.",
+		Description: "Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.",
 		Tag: "Catalog",
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
 	} , handlers.grantProject , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "GET" , "/api/admin/projects/{project_id}/invite-links" , apidoc.Op{
+		Summary: "A project's invite links",
+		Description: "The invite links on the project itself. Needs an app with invite links switched on.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.remoteInviteLinks , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/invite-links" , apidoc.Op{
+		Summary: "Make an invite link on a project",
+		Description: "One link a group can join the project itself through: up to max_uses accounts, for days days. role viewer makes them view only, on an app that has it.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Status: 201,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.createRemoteInvite , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/invite-links/{link_id}/revoke" , apidoc.Op{
+		Summary: "Stop an invite link on a project",
+		Description: "The link stops working. Accounts already made through it stay.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.revokeRemoteInvite , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/key" , apidoc.Op{
 		Summary: "Set a project's admin key",
 		Description: "Replace the admin API key the portal uses on a project. It must be an admin key there. Revoking the old one on the project signs out everyone it signed in.",
@@ -309,6 +331,13 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 , 502 },
 	} , handlers.setProjectKey , handlers.Guard.RequireAdmin , handlers.Guard.RequireSession )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/keys/{key_id}/revoke" , apidoc.Op{
+		Summary: "Revoke an API key on a project",
+		Description: "The key stops working there now, and so does every key it made.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.revokeRemoteKey , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/link/{user_id}" , apidoc.Op{
 		Summary: "Match someone to their account on a project",
 		Description: "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead.",
@@ -318,7 +347,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.linkRemote , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/members/{user_id}/remove" , apidoc.Op{
 		Summary: "Take someone off a project here",
-		Description: "Forget someone's account on the project, and their own key for it. Their account on the project itself stays: disable it there to stop them signing in with what they already have.",
+		Description: "Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.",
 		Tag: "Catalog",
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 },
@@ -330,6 +359,72 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
 	} , handlers.remoteUsers , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users" , apidoc.Op{
+		Summary: "Make an account on a project",
+		Description: "Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Status: 201,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.createRemoteUser , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/delete" , apidoc.Op{
+		Summary: "Delete an account on a project",
+		Description: "Delete the account on the project itself, with everything it held there. Anyone here it belonged to comes off the project. It cannot be undone.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.deleteRemoteUser , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/disabled" , apidoc.Op{
+		Summary: "Disable or enable an account on a project",
+		Description: "disabled true stops the account signing in there, and ends its sessions.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.setRemoteDisabled , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/expiry" , apidoc.Op{
+		Summary: "Set when an account on a project expires",
+		Description: "The account stops working expires_in_days from now; 0 means never. Needs an app with accounts that expire.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.setRemoteExpiry , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "GET" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys" , apidoc.Op{
+		Summary: "An account's API keys on a project",
+		Description: "The account's API keys there, never their secrets. Needs an app where the portal's key may make keys.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.remoteKeys , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys" , apidoc.Op{
+		Summary: "Make an API key on a project",
+		Description: "An API key for the account on the project, shown once. It always expires, its role is no higher than the account's, and revoking the portal's admin key there revokes it too.",
+		Tag: "Manage project",
+		Access: apidoc.SessionOnly,
+		Role: apidoc.Admin,
+		Status: 201,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.mintRemoteKey , handlers.Guard.RequireAdmin , handlers.Guard.RequireSession )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link" , apidoc.Op{
+		Summary: "A login link for an account on a project",
+		Description: "A fresh login link for one account on the project. It works once, for 15 minutes.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.remoteLoginLink , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access" , apidoc.Op{
+		Summary: "Sign an account out everywhere on a project",
+		Description: "End every session, login link and API key the account has there. The account stays enabled; a new login link signs it back in.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.revokeRemoteAccess , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/role" , apidoc.Op{
+		Summary: "Change an account's role on a project",
+		Description: "admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+	} , handlers.setRemoteRole , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/restore" , apidoc.Op{
 		Summary: "Undo deleting a project",
 		Description: "Put back a project deleted in the last 10 minutes.",
@@ -389,6 +484,13 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 },
 	} , handlers.setUserDisabled , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/users/{user_id}/project-accounts" , apidoc.Op{
+		Summary: "Disable someone's accounts on every project",
+		Description: "For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it.",
+		Tag: "Manage project",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 },
+	} , handlers.actOnProjectAccounts , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/users/{user_id}/reissue-login" , apidoc.Op{
 		Summary: "A new login link for an account",
 		Description: "For someone who lost their device or their link: a fresh login link for their account.",
@@ -937,6 +1039,13 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 // registerDeclaredTools registers the MCP tool of every route whose
 // @route(...) has mcp=, by tool name.
 func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
+	server.Register( mcp.ForRoute( "POST /api/admin/users/{user_id}/project-accounts" , handlers.actOnProjectAccounts , mcp.Tool{
+		Name: "admin_act_on_project_accounts",
+		Title: "Disable someone's accounts on every project (admin)",
+		Description: "For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it.",
+		Destructive: true,
+		AdminOnly: true,
+	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/users/{user_id}/cancel-login-link" , handlers.cancelLoginLink , mcp.Tool{
 		Name: "admin_cancel_login_link",
 		Title: "Stop an account's login link working (admin)",
@@ -964,6 +1073,18 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		AdminOnly: true,
 		Enabled: handlers.inviteLinksOn,
 	} , withJoinURL ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/invite-links" , handlers.createRemoteInvite , mcp.Tool{
+		Name: "admin_create_remote_invite_link",
+		Title: "Make an invite link on a project (admin)",
+		Description: "One link a group can join the project itself through: up to max_uses accounts, for days days. role viewer makes them view only, on an app that has it. Answers join_url: hand it out; it is shown only once.",
+		AdminOnly: true,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/remote-users" , handlers.createRemoteUser , mcp.Tool{
+		Name: "admin_create_remote_user",
+		Title: "Make an account on a project (admin)",
+		Description: "Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it. Answers login_url: hand it to the person it is for (it works once, for 15 minutes).",
+		AdminOnly: true,
+	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/users" , handlers.createUser , mcp.Tool{
 		Name: "admin_create_user",
 		Title: "Create an account (admin)",
@@ -993,6 +1114,13 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		Destructive: true,
 		AdminOnly: true,
 	} , nil ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/delete" , handlers.deleteRemoteUser , mcp.Tool{
+		Name: "admin_delete_remote_user",
+		Title: "Delete an account on a project (admin)",
+		Description: "Delete the account on the project itself, with everything it held there. Anyone here it belonged to comes off the project. It cannot be undone.",
+		Destructive: true,
+		AdminOnly: true,
+	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/users/{user_id}/delete" , handlers.deleteUser , mcp.Tool{
 		Name: "admin_delete_user",
 		Title: "Delete an account (admin)",
@@ -1017,7 +1145,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/grant/{user_id}" , handlers.grantProject , mcp.Tool{
 		Name: "admin_grant_project",
 		Title: "Put someone on a project (admin)",
-		Description: "Make someone an account on the project now, as if they had joined. They sign in from their own list; no link is handed to you.",
+		Description: "Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.",
 		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/link/{user_id}" , handlers.linkRemote , mcp.Tool{
@@ -1040,6 +1168,20 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		ReadOnly: true,
 		AdminOnly: true,
 		Enabled: handlers.inviteLinksOn,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "GET /api/admin/projects/{project_id}/invite-links" , handlers.remoteInviteLinks , mcp.Tool{
+		Name: "admin_list_remote_invite_links",
+		Title: "A project's invite links (admin)",
+		Description: "The invite links on the project itself. Needs an app with invite links switched on.",
+		ReadOnly: true,
+		AdminOnly: true,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "GET /api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys" , handlers.remoteKeys , mcp.Tool{
+		Name: "admin_list_remote_keys",
+		Title: "An account's API keys on a project (admin)",
+		Description: "The account's API keys there, never their secrets. Needs an app where the portal's key may make keys.",
+		ReadOnly: true,
+		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForRoute( "GET /api/admin/projects/{project_id}/remote-users" , handlers.remoteUsers , mcp.Tool{
 		Name: "admin_list_remote_users",
@@ -1081,10 +1223,16 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		Description: "For someone who lost their device or their link: a fresh login link for their account. Answers with login_url (open it to sign in; it works once unless max_uses says otherwise), expires_at and max_uses. Any older link the account could still use stops working; its signed-in devices stay signed in. Revoking or deleting this API key voids the link while it is unused, and signs out every device it signed in.",
 		AdminOnly: true,
 	} , withLoginLinkURL ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link" , handlers.remoteLoginLink , mcp.Tool{
+		Name: "admin_remote_login_link",
+		Title: "A login link for an account on a project (admin)",
+		Description: "A fresh login link for one account on the project. It works once, for 15 minutes. Answers login_url: hand it to the person it is for.",
+		AdminOnly: true,
+	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/members/{user_id}/remove" , handlers.removeMember , mcp.Tool{
 		Name: "admin_remove_project_member",
 		Title: "Take someone off a project here (admin)",
-		Description: "Forget someone's account on the project, and their own key for it. Their account on the project itself stays: disable it there to stop them signing in with what they already have.",
+		Description: "Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.",
 		Destructive: true,
 		AdminOnly: true,
 	} , nil ) )
@@ -1167,6 +1315,27 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		AdminOnly: true,
 		Enabled: handlers.inviteLinksOn,
 	} ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access" , handlers.revokeRemoteAccess , mcp.Tool{
+		Name: "admin_revoke_remote_access",
+		Title: "Sign an account out everywhere on a project (admin)",
+		Description: "End every session, login link and API key the account has there. The account stays enabled; a new login link signs it back in.",
+		Destructive: true,
+		AdminOnly: true,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/invite-links/{link_id}/revoke" , handlers.revokeRemoteInvite , mcp.Tool{
+		Name: "admin_revoke_remote_invite_link",
+		Title: "Stop an invite link on a project (admin)",
+		Description: "The link stops working. Accounts already made through it stay.",
+		Destructive: true,
+		AdminOnly: true,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/keys/{key_id}/revoke" , handlers.revokeRemoteKey , mcp.Tool{
+		Name: "admin_revoke_remote_key",
+		Title: "Revoke an API key on a project (admin)",
+		Description: "The key stops working there now, and so does every key it made.",
+		Destructive: true,
+		AdminOnly: true,
+	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/users/{user_id}/sessions/{session_id}/revoke" , handlers.revokeUserSession , mcp.Tool{
 		Name: "admin_revoke_user_session",
 		Title: "Sign out one of an account's devices (admin)",
@@ -1200,6 +1369,24 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		Description: "Runs admin_set_project_access once per item: items holds each call's arguments, shared the arguments they have in common (an item's own win). In order; one failing does not stop the rest, and the reply says how each went. At most 100 items.",
 		AdminOnly: true,
 	} ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/disabled" , handlers.setRemoteDisabled , mcp.Tool{
+		Name: "admin_set_remote_disabled",
+		Title: "Disable or enable an account on a project (admin)",
+		Description: "disabled true stops the account signing in there, and ends its sessions.",
+		AdminOnly: true,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/expiry" , handlers.setRemoteExpiry , mcp.Tool{
+		Name: "admin_set_remote_expiry",
+		Title: "Set when an account on a project expires (admin)",
+		Description: "The account stops working expires_in_days from now; 0 means never. Needs an app with accounts that expire.",
+		AdminOnly: true,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/role" , handlers.setRemoteRole , mcp.Tool{
+		Name: "admin_set_remote_role",
+		Title: "Change an account's role on a project (admin)",
+		Description: "admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.",
+		AdminOnly: true,
+	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/theme-defaults" , handlers.setThemeDefaults , mcp.Tool{
 		Name: "admin_set_theme_defaults",
 		Title: "Replace the default themes (admin)",

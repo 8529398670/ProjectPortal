@@ -24,6 +24,9 @@ type Membership struct {
 	RemoteUserID uint64     `json:"remote_user_id,omitempty"`
 	RemoteName   string     `json:"remote_name,omitempty"`
 	RemoteRole   string     `json:"remote_role,omitempty"`
+	// RemoteExpiresAt mirrors when their account there stops working (an app
+	// with account_expiry), as last set or seen from the portal.
+	RemoteExpiresAt *time.Time `json:"remote_expires_at,omitempty"`
 	PersonalKey  string     `json:"personal_key,omitempty"`
 	Via          string     `json:"via"`
 	Favorite     bool       `json:"favorite,omitempty"`
@@ -226,6 +229,36 @@ func UndoLeave( store *db.Store , user_id uint64 , project_id uint64 ) ( members
 // RemoveMembership forgets a membership entirely.
 func RemoveMembership( store *db.Store , user_id uint64 , project_id uint64 ) ( err error ) {
 	err = store.Delete( db.BucketMemberships , membershipKey( user_id , project_id ) )
+	return
+}
+
+// SyncRemoteAccount applies a change made to an account on a project to every
+// membership here that points at it.
+func SyncRemoteAccount( store *db.Store , project_id uint64 , remote_user_id uint64 , mutate func( membership *Membership ) ) ( err error ) {
+	err = store.Write( func( tx *db.Tx ) ( tx_err error ) {
+		changed := []*Membership{}
+		tx_err = tx.ForEach( db.BucketMemberships , func() any { return &Membership{} } , func( key []byte , item any ) bool {
+			membership := item.( *Membership )
+			if membership.ProjectID == project_id && membership.RemoteUserID == remote_user_id { changed = append( changed , membership ) }
+			return true
+		} )
+		if tx_err != nil { return }
+		for _ , membership := range changed {
+			mutate( membership )
+			if tx_err = tx.Put( db.BucketMemberships , membershipKey( membership.UserID , membership.ProjectID ) , membership ); tx_err != nil { return }
+		}
+		return
+	} )
+	return
+}
+
+// ForgetRemoteAccount removes every membership pointing at an account that
+// was deleted on the project.
+func ForgetRemoteAccount( store *db.Store , project_id uint64 , remote_user_id uint64 ) ( removed int , err error ) {
+	removed , err = store.DeleteWhere( db.BucketMemberships , func() any { return &Membership{} } , func( key []byte , item any ) bool {
+		membership := item.( *Membership )
+		return membership.ProjectID == project_id && membership.RemoteUserID == remote_user_id
+	} )
 	return
 }
 
