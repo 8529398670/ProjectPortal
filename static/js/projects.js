@@ -143,7 +143,7 @@ const Projects = {
     return Dom.el( "div" , { class: "col" , children: [
       Dom.el( "article" , { class: "card h-100 project-tile" , attrs: { "aria-label": project.name } , children: [
         Dom.el( "div" , { class: "card-body" , children: body } ),
-        Dom.el( "div" , { class: "card-footer bg-transparent d-flex align-items-center gap-2" , children: actions } ),
+        Dom.el( "div" , { class: "card-footer bg-transparent d-flex flex-wrap align-items-center gap-1 gap-sm-2" , children: actions } ),
       ] } ),
     ] } );
   },
@@ -200,8 +200,8 @@ const Projects = {
     if ( !/^https?:\/\//.test( project.board_share_url || "" ) ) return null;
     return Dom.el( "a" , {
       class: "btn btn-outline-secondary btn-sm",
-      attrs: { href: project.board_share_url , target: "_blank" , rel: "noopener noreferrer" , title: I18n.get( "projects.board_hint" ) },
-      children: [ Dom.el( "i" , { class: "bi bi-kanban me-1" , attrs: { "aria-hidden": "true" } } ) , Dom.el( "span" , { text: I18n.get( "projects.board_button" ) } ) ],
+      attrs: { href: project.board_share_url , target: "_blank" , rel: "noopener noreferrer" , title: I18n.get( "projects.board_hint" ) , "aria-label": I18n.get( "projects.board_button" ) },
+      children: [ Dom.el( "i" , { class: "bi bi-kanban" , attrs: { "aria-hidden": "true" } } ) ],
     } );
   },
 
@@ -210,8 +210,8 @@ const Projects = {
     if ( !/^https?:\/\//.test( project.github_url || "" ) ) return null;
     return Dom.el( "a" , {
       class: "btn btn-outline-secondary btn-sm",
-      attrs: { href: project.github_url , target: "_blank" , rel: "noopener noreferrer" , title: I18n.get( "projects.github_hint" ) },
-      children: [ Dom.el( "i" , { class: "bi bi-github me-1" , attrs: { "aria-hidden": "true" } } ) , Dom.el( "span" , { text: I18n.get( "projects.github_button" ) } ) ],
+      attrs: { href: project.github_url , target: "_blank" , rel: "noopener noreferrer" , title: I18n.get( "projects.github_hint" ) , "aria-label": I18n.get( "projects.github_button" ) },
+      children: [ Dom.el( "i" , { class: "bi bi-github" , attrs: { "aria-hidden": "true" } } ) ],
     } );
   },
 

@@ -802,3 +802,7 @@ body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-ins
 /* The icon picker's choices (catalog.js): square, finger-sized buttons. */
 .icon-choice { width: 2.75rem; height: 2.75rem; padding: 0; font-size: 1.25rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
 .min-w-0 { min-width: 0; }
+
+/* A project tile's buttons keep their labels on one line; when the row is
+   full they wrap to the next line rather than squeezing. */
+.project-tile .card-footer .btn { flex: 0 0 auto; white-space: nowrap; }
