@@ -184,6 +184,7 @@ const Projects = {
       on: { click: () => this.onStar( project ) },
     } );
     const items = [
+      Dom.el( "button" , { attrs: { type: "button" } , text: I18n.get( "projects.new_link_button" ) , on: { click: () => this.onNewLink( project ) } } ),
       Dom.el( "button" , { attrs: { type: "button" } , text: I18n.get( "projects.tags_button" ) , on: { click: () => this.onTags( project ) } } ),
       project.own_key
         ? Dom.el( "button" , { attrs: { type: "button" } , text: I18n.get( "projects.own_key_remove" ) , on: { click: () => this.onRemoveOwnKey( project ) } } )
@@ -235,6 +236,60 @@ const Projects = {
       App.showError( error.message );
       await this.refresh();
     }
+  },
+
+  // The same fresh link Open makes, put on the clipboard instead of opened:
+  // for signing in on another device or browser. Safari only lets a page
+  // write the clipboard during the click, so the write starts now with the
+  // link still to come (a ClipboardItem holding a promise); browsers without
+  // that get writeText once it arrives, and failing both the link is shown
+  // to copy by hand.
+  async onNewLink( project ) {
+    const asked = Api.openProject( project.id ).then( ( answer ) => answer.login_url );
+    asked.catch( () => {} );
+    let copied = false;
+    try {
+      if ( window.ClipboardItem && navigator.clipboard && navigator.clipboard.write ) {
+        const blob = asked.then( ( url ) => new Blob( [ url ] , { type: "text/plain" } ) );
+        await navigator.clipboard.write( [ new ClipboardItem( { "text/plain": blob } ) ] );
+        copied = true;
+      }
+    } catch ( error ) { /* falls through to the next way */ }
+    let url;
+    try {
+      url = await asked;
+    } catch ( error ) {
+      App.showError( error.message );
+      await this.refresh();
+      return;
+    }
+    if ( !copied ) {
+      try {
+        await navigator.clipboard.writeText( url );
+        copied = true;
+      } catch ( error ) { /* shown below instead */ }
+    }
+    if ( copied ) Dom.toast( I18n.get( "projects.new_link_copied" ) , "ok" );
+    else await this.showLink( project , url );
+    await this.refresh();
+  },
+
+  showLink( project , url ) {
+    return Dom.form( {
+      title: I18n.get( "projects.new_link_heading" ).replace( "{name}" , () => project.name ),
+      submit: I18n.get( "projects.new_link_done" ),
+      fields: [ { name: "link" , type: "custom" , build: ( id ) => {
+        const input = Dom.el( "input" , { class: "form-control font-monospace" , attrs: { type: "text" , id: id , readonly: "" , "aria-describedby": id + "-help" } } );
+        input.value = url;
+        input.addEventListener( "focus" , () => input.select() );
+        return { element: Dom.el( "div" , { children: [
+          Dom.el( "label" , { class: "form-label" , text: I18n.get( "projects.new_link_label" ) , attrs: { for: id } } ),
+          input,
+          Dom.el( "div" , { class: "form-text" , text: I18n.get( "projects.new_link_help" ) , attrs: { id: id + "-help" } } ),
+        ] } ) , read: () => url };
+      } } ],
+      save: () => true,
+    } );
   },
 
   find( id ) {

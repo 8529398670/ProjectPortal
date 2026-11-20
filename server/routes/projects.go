@@ -276,10 +276,31 @@ func ( handlers *Handlers ) openProject( c fiber.Ctx , in *projectIDPath ) ( rep
 		if open_err != nil { return nil , open_err }
 		link , remote_err = remote.OwnLoginLink( ctx , project.BaseURL , key )
 	}
+	if remote_err != nil && used_admin_key == false { remote_err = keyMayNotSignIn( project , remote_err ) }
 	if remote_err != nil { return nil , handlers.remoteRefusal( project , remote_err , used_admin_key ) }
 	_ = models.MarkOpened( handlers.Store , user.ID , project.ID )
 	handlers.audit( c , logs.KindAuth , "project sign-in link made" , fiber.Map{ "project_id": project.ID , "own_key": used_admin_key == false } )
 	reply = &projectLinkReply{ ProjectID: project.ID , LoginURL: link.URL }
+	return
+}
+
+// keyMayNotSignIn words the refusal a project gives a key that may not make
+// its account a sign-in link: Sign-in links is off for that key, or the
+// project is from before keys could (its login-link route is browser-only,
+// or missing). The project's own words stay on the end.
+func keyMayNotSignIn( project *models.Project , cause error ) ( result error ) {
+	result = cause
+	var remote_err *remote.Error
+	if errors.As( cause , &remote_err ) == false { return }
+	switch remote_err.Status {
+	case fiber.StatusForbidden , fiber.StatusNotFound , fiber.StatusMethodNotAllowed:
+	default:
+		return
+	}
+	result = &remote.Error{ Status: remote_err.Status , Message: "it will not make a sign-in link for your key. On " + project.Name +
+		", switch on Sign-in links for that key (API keys card); if it has no such setting, " + project.Name +
+		" needs updating before a key can sign you in there. Until then, stop using your key here and an admin can link your account. (" +
+		remote_err.Message + ")" }
 	return
 }
 

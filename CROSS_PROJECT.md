@@ -29,6 +29,44 @@ If an app falls out of sync (Check now shows a refused key, or Join/Open answers
 502), check it against this table first. The usual fix is the `webserver-upgrade`
 skill run in that app.
 
+### Known gap: apps that cannot make a sign-in link for a key
+Attaching your own key only checks `GET /api/me`, so the card says "Signs you in
+as …" even on an app whose `POST /api/account/login-link` turns keys away. Open
+then fails. Since 2026-11-20 the portal words that refusal ("switch on Sign-in
+links for that key… or it needs updating"). Each app that still answers 403
+`this endpoint requires a signed-in session, not an API key` there needs the
+fix below, one app at a time as they come up.
+
+---
+
+## Rook (`~/WORKSPACE/PROJECTS/Games/Rook`)
+
+### 2026-11-20, plan to paste: let a key make its own account a sign-in link
+Found when a portal user attached their own Rook key and Open failed. Rook was
+scaffolded from go-webserver at `145e4d48` and its login-link route is still
+`access=SESSION_ONLY` (`server/routes/account.go`, `CreateMyLoginLink`). The
+comment in `server/security/security.go` already describes `APIKey.MaySignIn`,
+but the field and the route change were never brought in.
+
+> Run the `webserver-upgrade` skill in this app and take the upgrade that lets an
+> API key make its own account a login link once that account switched **Sign-in
+> links** on for the key (the `MaySignIn` flag on API keys, set from a browser
+> session on the API keys card). Check TodoBoard
+> (`~/WORKSPACE/PROJECTS/TodoBoard/server/routes/account.go`, `createMyLoginLink`)
+> for how it should end up. `POST /api/account/login-link` must take an API key
+> with that flag on. It must accept `{ "max_uses": 1, "expires_in_minutes": 15 }`,
+> cap a key's link at once and 15 minutes, and answer `{ "login_path": "/login/…" }`.
+> Every link must record the key that made it, and revoking the key must void it
+> (`VoidLinksMintedByKeyTx`). A key without the flag still gets 403. Keep it
+> browser-only for minting keys themselves. Add tests (key with flag gets 200 and a
+> login_path; key without gets 403; revoking the key voids the link), regenerate the
+> API docs, and check the portal: attach a Rook key with Sign-in links on, then
+> **Open** and **Make a new login link** both work.
+>
+> Also check the admin-key routes the portal uses (`/api/admin/users`,
+> `/api/admin/users/{id}/reissue-login`). They answer "browser session only" in
+> `config/api.md` too, which would also break Join for Rook.
+
 ---
 
 ## TodoBoard (`~/WORKSPACE/PROJECTS/TodoBoard`)

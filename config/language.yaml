@@ -166,6 +166,13 @@ projects:
   signed_in_as: "Signs you in as {name}"
   open_button: "Open"
   open_hint: "Opens in a new tab"
+  new_link_button: "Make a new login link"
+  new_link_copied: "Login link copied. It works once, for 15 minutes."
+  # Where the browser would not copy it: the link is shown to copy by hand.
+  new_link_heading: "Login link for {name}"
+  new_link_label: "Login link"
+  new_link_help: "It works once, for 15 minutes. Treat it like a password."
+  new_link_done: "Done"
   github_button: "GitHub"
   github_hint: "The project's code on GitHub. Opens in a new tab."
   sort_label: "Sort"
@@ -966,6 +973,8 @@ errors:
   # {reference} finds this failure in the Logs screen's search.
   reference: "Something went wrong on the server. Reference: {reference}"
   network: "Could not reach the server."
+  # A refusal with no words in it, such as a proxy's own error page. {status} is the HTTP status.
+  status: "Something went wrong ({status}). Please try again."
   # Error codes the invite link and PIN routes answer with, by name.
   invite_link_invalid: "This invite link is invalid, expired, or has been switched off."
   invite_link_full: "This link has no places left."

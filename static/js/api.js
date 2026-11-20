@@ -59,7 +59,10 @@ const Api = {
   // A failure on the server's side comes with a reference, which is the one
   // thing that lets whoever reads it out be matched to a line in the log.
   failureText( payload , response ) {
-    const text = payload.error || response.statusText;
+    // No words at all (HTTP/2 has no status text, and a proxy in front may
+    // answer with its own page): the status is still worth saying.
+    const status = I18n.get( "errors.status" );
+    const text = payload.error || response.statusText || ( status ? status.replace( "{status}" , response.status ) : "" );
     if ( !payload.request_id ) return text;
     const worded = I18n.get( "errors.reference" );
     return worded ? worded.replace( "{reference}" , payload.request_id ) : text;
