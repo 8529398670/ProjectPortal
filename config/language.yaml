@@ -202,8 +202,6 @@ catalog:
   key_help: "Make it on the project, on the API keys card, with role admin. With the project owner's key the portal can also sign in that project's admins. Revoking it there signs out everyone the portal signed in."
   description_label: "Description"
   icon_label: "Icon"
-  icon_placeholder: "kanban"
-  icon_help: "A Bootstrap Icons name, without bi-."
   color_label: "Color"
   color_use: "Use this color"
   listed_label: "Listed: everyone here sees it and can join it"

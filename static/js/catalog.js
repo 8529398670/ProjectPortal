@@ -1,3 +1,42 @@
+// A project's icon, picked from a short grid instead of typed: nobody knows
+// Bootstrap Icons names. An icon set before the grid existed that is not in it
+// is kept as one more choice, so editing a project never changes it unasked.
+const IconPicker = {
+  fallback: "kanban",
+  choices: [
+    "kanban", "list-check", "clipboard-data", "journal-text", "newspaper", "book",
+    "chat-dots", "envelope", "calendar-event", "people", "briefcase", "house-door",
+    "cart3", "wallet2", "graph-up-arrow", "box-seam", "map", "airplane",
+    "camera", "film", "music-note-beamed", "palette", "controller", "cup-hot",
+    "heart-pulse", "lightbulb", "tools", "code-slash", "terminal", "database",
+    "cloud", "shield-lock", "robot", "rocket-takeoff", "globe2", "app-indicator",
+  ],
+
+  build( id , value ) {
+    const names = this.choices.includes( value ) || !/^[a-z0-9-]+$/.test( value || "" ) ? this.choices : this.choices.concat( [ value ] );
+    const picked = names.includes( value ) ? value : this.fallback;
+    const radios = [];
+    const options = names.map( ( name , index ) => {
+      const radioId = id + "-" + index;
+      const radio = Dom.el( "input" , { class: "btn-check" , attrs: { type: "radio" , name: id , id: radioId , value: name , autocomplete: "off" } } );
+      // defaultChecked too, so the Add form's reset goes back to it.
+      radio.checked = radio.defaultChecked = name === picked;
+      radios.push( radio );
+      const words = name.replace( /-/g , " " );
+      return Dom.el( "div" , { children: [
+        radio,
+        Dom.el( "label" , { class: "btn btn-outline-secondary icon-choice" , attrs: { for: radioId , title: words , "aria-label": words } ,
+          children: [ Dom.el( "i" , { class: "bi bi-" + name , attrs: { "aria-hidden": "true" } } ) ] } ),
+      ] } );
+    } );
+    const element = Dom.el( "fieldset" , { children: [
+      Dom.el( "legend" , { class: "form-label fs-6" , text: I18n.get( "catalog.icon_label" ) } ),
+      Dom.el( "div" , { class: "d-flex flex-wrap gap-1" , children: options } ),
+    ] } );
+    return { element , read: () => ( radios.find( ( radio ) => radio.checked ) || {} ).value || this.fallback };
+  },
+};
+
 // The Catalog screen (admins): the projects the portal knows, each with the
 // admin key it uses there. Adding one with its key is all it takes for
 // everyone to see it and join it. app.js calls Catalog.init( me ) for admins;
@@ -9,6 +48,8 @@ const Catalog = {
     if ( me.role !== "admin" ) return;
     this.me = me;
     Dom.show( Dom.get( "catalog-panel" ) , true );
+    this.addIcon = IconPicker.build( "project-icon" , IconPicker.fallback );
+    Dom.get( "project-icon-picker" ).replaceChildren( this.addIcon.element );
     Dom.onSubmit( Dom.get( "add-project-form" ) , this.onAdd.bind( this ) );
     Pager.sortable( "catalog-table" , () => this.refresh() );
     Pager.search( "catalog-table" , "catalog-search" , () => this.refresh() );
@@ -28,7 +69,7 @@ const Catalog = {
         base_url: value( "project-url" ),
         admin_key: value( "project-key" ),
         description: value( "project-description" ),
-        icon: value( "project-icon" ),
+        icon: this.addIcon.read(),
         color: Dom.get( "project-color-set" ).checked ? Dom.get( "project-color" ).value : "",
         listed: Dom.get( "project-listed" ).checked,
         github_url: value( "project-github" ),
@@ -143,7 +184,7 @@ const Catalog = {
         { name: "name" , label: I18n.get( "catalog.name_label" ) , value: before.name , required: true , maxLength: 80 },
         { name: "base_url" , type: "url" , label: I18n.get( "catalog.url_label" ) , value: before.base_url , required: true , maxLength: 300 , help: I18n.get( "catalog.url_change_help" ) },
         { name: "description" , label: I18n.get( "catalog.description_label" ) , value: before.description , maxLength: 500 },
-        { name: "icon" , label: I18n.get( "catalog.icon_label" ) , value: before.icon , maxLength: 40 , help: I18n.get( "catalog.icon_help" ) },
+        { name: "icon" , type: "custom" , build: ( id ) => IconPicker.build( id , before.icon || IconPicker.fallback ) },
         { name: "color" , label: I18n.get( "catalog.color_label" ) , value: before.color , maxLength: 7 , placeholder: "#0d6efd" },
         { name: "github_url" , type: "url" , label: I18n.get( "catalog.github_label" ) , value: before.github_url , maxLength: 300 , placeholder: I18n.get( "catalog.github_placeholder" ) },
         { name: "board_url" , type: "url" , label: I18n.get( "catalog.board_label" ) , value: before.board_url , maxLength: 300 , placeholder: I18n.get( "catalog.board_placeholder" ) , help: I18n.get( "catalog.links_help" ) },

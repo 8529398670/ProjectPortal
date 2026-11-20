@@ -792,4 +792,6 @@ body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-ins
   font-size: 1.25rem;
 }
 .project-health { flex: none; font-size: .75rem; }
+/* The icon picker's choices (catalog.js): square, finger-sized buttons. */
+.icon-choice { width: 2.75rem; height: 2.75rem; padding: 0; font-size: 1.25rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
 .min-w-0 { min-width: 0; }

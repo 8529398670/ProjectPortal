@@ -472,6 +472,7 @@ const Dom = {
   //   "checkbox" -- answers true or false
   //   "select"   -- options: [ { value , label } ]
   //   "checks"   -- a group of boxes: options as above, answers the values ticked
+  //   "custom"   -- build( id ) makes it: answers { element , read }, label included
   form( options ) {
     const element = this.get( "form-modal" );
     if ( element._open ) return Promise.resolve( null );
@@ -549,6 +550,10 @@ const Dom = {
       const single = box( field , Boolean( field.value ) , id );
       if ( help ) single.input.setAttribute( "aria-describedby" , help.id );
       return { name: field.name , element: assemble( [ single.element ] ) , read: () => single.input.checked };
+    }
+    if ( type === "custom" ) {
+      const custom = field.build( id );
+      return { name: field.name , element: assemble( [ custom.element ] ) , read: custom.read };
     }
     if ( type === "checks" ) {
       const chosen = field.value || [];
