@@ -302,7 +302,7 @@ Say which account on the project is theirs. Opening the project then signs them 
 
 ## admin_list_catalog
 
-Every project in the portal, a page at a time, with whether its admin key works, whether it is up, and how many people are on it.
+Every project in the portal, a page at a time, with whether its admin key works, whether it is up, how many people are on it, and its GitHub and TodoBoard links.
 
 |  |  |
 |---|---|

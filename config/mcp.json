@@ -505,7 +505,7 @@
         "readOnlyHint": true,
         "title": "The catalog (admin)"
       },
-      "description": "Every project in the portal, a page at a time, with whether its admin key works, whether it is up, and how many people are on it.",
+      "description": "Every project in the portal, a page at a time, with whether its admin key works, whether it is up, how many people are on it, and its GitHub and TodoBoard links.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

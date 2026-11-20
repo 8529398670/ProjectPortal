@@ -151,7 +151,7 @@ const Projects = {
       text: I18n.get( "projects.own_key_button" ),
       on: { click: () => this.onOwnKey( project ) },
     } );
-    return [ join , extra ];
+    return [ join , this.boardLink( project ) , extra ].filter( Boolean );
   },
 
   memberActions( project ) {
@@ -177,7 +177,17 @@ const Projects = {
     ];
     const menu = Dom.rowMenu( project.name , items );
     menu.classList.add( "ms-auto" );
-    return [ open , star , menu ];
+    return [ open , this.boardLink( project ) , star , menu ].filter( Boolean );
+  },
+
+  // The project's TodoBoard board, view only, when an admin gave its link.
+  boardLink( project ) {
+    if ( !/^https?:\/\//.test( project.board_share_url || "" ) ) return null;
+    return Dom.el( "a" , {
+      class: "btn btn-outline-secondary btn-sm",
+      attrs: { href: project.board_share_url , target: "_blank" , rel: "noopener noreferrer" , title: I18n.get( "projects.board_hint" ) },
+      children: [ Dom.el( "i" , { class: "bi bi-kanban me-1" , attrs: { "aria-hidden": "true" } } ) , Dom.el( "span" , { text: I18n.get( "projects.board_button" ) } ) ],
+    } );
   },
 
   // Asks for a link and goes there. Ctrl/Cmd/middle-click opens it in a new

@@ -27,6 +27,12 @@ type Project struct {
 	Icon        string `json:"icon,omitempty"`
 	Color       string `json:"color,omitempty"`
 	AdminKey    string `json:"admin_key,omitempty"`
+	// Where the project's code and its TodoBoard board live, for admins, and
+	// a view-only TodoBoard share link people may follow. BoardShareURL is a
+	// bearer link, sealed like AdminKey (PurposeRemoteKeys).
+	GitHubURL     string `json:"github_url,omitempty"`
+	BoardURL      string `json:"board_url,omitempty"`
+	BoardShareURL string `json:"board_share_url,omitempty"`
 	// Listed is whether people see it at all; ExcludedUserIDs are the people
 	// it is kept from while it is listed. Everyone else may join it.
 	Listed          bool     `json:"listed"`
@@ -55,6 +61,7 @@ const (
 var (
 	ErrBadBaseURL    = errors.New( "the address must be http:// or https:// with a host, and nothing after the host but a path" )
 	ErrBadProjectName = errors.New( "name must be 1-80 characters" )
+	ErrBadLinkURL     = errors.New( "links must be http:// or https:// with a host, and no query, fragment or password" )
 )
 
 // NormalizeBaseURL is the address the portal calls and sends people to:
@@ -67,6 +74,22 @@ func NormalizeBaseURL( raw string ) ( result string , err error ) {
 		return
 	}
 	result = parsed.Scheme + "://" + strings.ToLower( parsed.Host ) + strings.TrimRight( parsed.Path , "/" )
+	return
+}
+
+// NormalizeLinkURL checks a link an admin keeps on a project (GitHub, a
+// board, a share link). Empty is fine. The path keeps its case: a share
+// link's secret is in it.
+func NormalizeLinkURL( raw string ) ( result string , err error ) {
+	trimmed := strings.TrimSpace( raw )
+	if trimmed == "" { return }
+	parsed , parse_err := net_url.Parse( trimmed )
+	if parse_err != nil || ( parsed.Scheme != "http" && parsed.Scheme != "https" ) || parsed.Host == "" ||
+		parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.ForceQuery {
+		err = ErrBadLinkURL
+		return
+	}
+	result = parsed.Scheme + "://" + strings.ToLower( parsed.Host ) + parsed.EscapedPath()
 	return
 }
 
@@ -98,6 +121,12 @@ type ProjectFields struct {
 	Icon        string
 	Color       string
 	Listed      bool
+	GitHubURL   string
+	BoardURL    string
+	// BoardShareURL is plain here; the caller seals it into SealedShare
+	// after check() has normalized it.
+	BoardShareURL string
+	SealedShare   string
 }
 
 func ( fields *ProjectFields ) check() ( err error ) {
@@ -107,7 +136,17 @@ func ( fields *ProjectFields ) check() ( err error ) {
 	}
 	fields.Name = strings.TrimSpace( fields.Name )
 	fields.Description = strings.TrimSpace( fields.Description )
-	fields.BaseURL , err = NormalizeBaseURL( fields.BaseURL )
+	if fields.BaseURL , err = NormalizeBaseURL( fields.BaseURL ); err != nil { return }
+	if fields.GitHubURL , err = NormalizeLinkURL( fields.GitHubURL ); err != nil { return }
+	if fields.BoardURL , err = NormalizeLinkURL( fields.BoardURL ); err != nil { return }
+	fields.BoardShareURL , err = NormalizeLinkURL( fields.BoardShareURL )
+	return
+}
+
+// Check validates and normalizes the fields, for a caller that has to seal
+// the share link before saving.
+func ( fields *ProjectFields ) Check() ( err error ) {
+	err = fields.check()
 	return
 }
 
@@ -120,6 +159,7 @@ func CreateProject( store *db.Store , fields ProjectFields , sealed_key string )
 		project = &Project{
 			ID: next_id , Name: fields.Name , Description: fields.Description , BaseURL: fields.BaseURL ,
 			Icon: fields.Icon , Color: fields.Color , Listed: fields.Listed , AdminKey: sealed_key ,
+			GitHubURL: fields.GitHubURL , BoardURL: fields.BoardURL , BoardShareURL: fields.SealedShare ,
 			Position: int( next_id ) , CreatedAt: now , UpdatedAt: now ,
 		}
 		if sealed_key == "" { project.KeyStatus = KeyMissing }
@@ -195,6 +235,7 @@ func EditProject( store *db.Store , project_id uint64 , fields ProjectFields ) (
 		}
 		project.Name , project.Description , project.BaseURL = fields.Name , fields.Description , fields.BaseURL
 		project.Icon , project.Color , project.Listed = fields.Icon , fields.Color , fields.Listed
+		project.GitHubURL , project.BoardURL , project.BoardShareURL = fields.GitHubURL , fields.BoardURL , fields.SealedShare
 		project.UpdatedAt = time.Now().UTC()
 		tx_err = tx.Put( db.BucketProjects , encryption.Uint64ToBytes( project_id ) , project )
 		return

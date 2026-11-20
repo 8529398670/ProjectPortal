@@ -217,6 +217,14 @@
           "base_url": {
             "type": "string"
           },
+          "board_share_url": {
+            "description": "A view-only TodoBoard share link, which everyone who may see the project gets.",
+            "type": "string"
+          },
+          "board_url": {
+            "description": "Its TodoBoard board, for admins.",
+            "type": "string"
+          },
           "check_note": {
             "type": "string"
           },
@@ -243,6 +251,10 @@
               "type": "integer"
             },
             "type": "array"
+          },
+          "github_url": {
+            "description": "The project's code, for admins.",
+            "type": "string"
           },
           "health": {
             "description": "up, down, or empty before the first check.",
@@ -277,12 +289,15 @@
         },
         "required": [
           "base_url",
+          "board_share_url",
+          "board_url",
           "check_note",
           "checked_at",
           "color",
           "created_at",
           "description",
           "excluded_user_ids",
+          "github_url",
           "health",
           "icon",
           "id",
@@ -961,6 +976,10 @@
           "base_url": {
             "type": "string"
           },
+          "board_share_url": {
+            "description": "A view-only link to the project's TodoBoard board, or empty.",
+            "type": "string"
+          },
           "checked_at": {
             "format": "date-time",
             "type": [
@@ -1041,6 +1060,7 @@
         },
         "required": [
           "base_url",
+          "board_share_url",
           "checked_at",
           "color",
           "created_at",
@@ -4480,7 +4500,7 @@
     },
     "/api/admin/projects": {
       "get": {
-        "description": "Every project in the portal, a page at a time, with whether its admin key works, whether it is up, and how many people are on it.",
+        "description": "Every project in the portal, a page at a time, with whether its admin key works, whether it is up, how many people are on it, and its GitHub and TodoBoard links.",
         "operationId": "get_api_admin_projects",
         "parameters": [
           {
@@ -4623,6 +4643,16 @@
                     "minLength": 8,
                     "type": "string"
                   },
+                  "board_share_url": {
+                    "description": "A view-only TodoBoard share link (/s/...), handed to everyone who may see the project.",
+                    "maxLength": 500,
+                    "type": "string"
+                  },
+                  "board_url": {
+                    "description": "Its TodoBoard board, e.g. https://todo.example.com/b/app. Only admins see it.",
+                    "maxLength": 300,
+                    "type": "string"
+                  },
                   "color": {
                     "description": "#rrggbb.",
                     "maxLength": 7,
@@ -4635,6 +4665,11 @@
                   },
                   "description": {
                     "maxLength": 500,
+                    "type": "string"
+                  },
+                  "github_url": {
+                    "description": "Where its code is, e.g. https://github.com/me/app. Only admins see it.",
+                    "maxLength": 300,
                     "type": "string"
                   },
                   "icon": {
@@ -5215,7 +5250,7 @@
     },
     "/api/admin/projects/{project_id}/edit": {
       "post": {
-        "description": "Change a project's name, description, address, icon, color or whether it is listed. A new address drops the admin key and everyone's own keys for the old one: give the key again.",
+        "description": "Change a project's name, description, address, icon, color, links or whether it is listed. A new address drops the admin key and everyone's own keys for the old one: give the key again.",
         "operationId": "post_api_admin_projects_project_id_edit",
         "parameters": [
           {
@@ -5241,6 +5276,16 @@
                     "minLength": 8,
                     "type": "string"
                   },
+                  "board_share_url": {
+                    "description": "A view-only TodoBoard share link (/s/...), handed to everyone who may see the project.",
+                    "maxLength": 500,
+                    "type": "string"
+                  },
+                  "board_url": {
+                    "description": "Its TodoBoard board, e.g. https://todo.example.com/b/app. Only admins see it.",
+                    "maxLength": 300,
+                    "type": "string"
+                  },
                   "color": {
                     "description": "#rrggbb.",
                     "maxLength": 7,
@@ -5253,6 +5298,11 @@
                   },
                   "description": {
                     "maxLength": 500,
+                    "type": "string"
+                  },
+                  "github_url": {
+                    "description": "Where its code is, e.g. https://github.com/me/app. Only admins see it.",
+                    "maxLength": 300,
                     "type": "string"
                   },
                   "icon": {

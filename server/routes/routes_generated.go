@@ -237,7 +237,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.revokeAnyAPIKey , handlers.featureGuards()[ "api_keys" ] , handlers.Guard.RequireAdmin , handlers.Guard.RequireSession )
 	apidoc.Mount( app , "GET" , "/api/admin/projects" , apidoc.Op{
 		Summary: "The catalog",
-		Description: "Every project in the portal, a page at a time, with whether its admin key works, whether it is up, and how many people are on it.",
+		Description: "Every project in the portal, a page at a time, with whether its admin key works, whether it is up, how many people are on it, and its GitHub and TodoBoard links.",
 		Tag: "Catalog",
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 },
@@ -288,7 +288,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.deleteProject , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/edit" , apidoc.Op{
 		Summary: "Change a project",
-		Description: "Change a project's name, description, address, icon, color or whether it is listed. A new address drops the admin key and everyone's own keys for the old one: give the key again.",
+		Description: "Change a project's name, description, address, icon, color, links or whether it is listed. A new address drops the admin key and everyone's own keys for the old one: give the key again.",
 		Tag: "Catalog",
 		Access: apidoc.SessionOnly,
 		Role: apidoc.Admin,
@@ -1029,7 +1029,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "GET /api/admin/projects" , handlers.listCatalog , mcp.Tool{
 		Name: "admin_list_catalog",
 		Title: "The catalog (admin)",
-		Description: "Every project in the portal, a page at a time, with whether its admin key works, whether it is up, and how many people are on it.",
+		Description: "Every project in the portal, a page at a time, with whether its admin key works, whether it is up, how many people are on it, and its GitHub and TodoBoard links.",
 		ReadOnly: true,
 		AdminOnly: true,
 	} , nil ) )

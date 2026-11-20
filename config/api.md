@@ -2655,7 +2655,7 @@ Refused: this server keeps no sessions
 
 The catalog
 
-Every project in the portal, a page at a time, with whether its admin key works, whether it is up, and how many people are on it.
+Every project in the portal, a page at a time, with whether its admin key works, whether it is up, how many people are on it, and its GitHub and TodoBoard links.
 
 |  |  |
 |---|---|
@@ -2698,9 +2698,12 @@ Add a project to the catalog. With admin_key (an admin API key there), people ca
 |---|---|---|---|---|
 | `admin_key` | string | no | at most 400 characters | An admin API key on that project. Checked before it is kept. |
 | `base_url` | string | yes | 8 to 300 characters | Where the project is served, e.g. https://todo.example.com: what people's browsers open. |
+| `board_share_url` | string | no | at most 500 characters | A view-only TodoBoard share link (/s/...), handed to everyone who may see the project. |
+| `board_url` | string | no | at most 300 characters | Its TodoBoard board, e.g. https://todo.example.com/b/app. Only admins see it. |
 | `color` | string | no | at most 7 characters | #rrggbb. |
 | `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
 | `description` | string | no | at most 500 characters |  |
+| `github_url` | string | no | at most 300 characters | Where its code is, e.g. https://github.com/me/app. Only admins see it. |
 | `icon` | string | no | at most 40 characters | A Bootstrap Icons name without bi-, e.g. kanban. |
 | `listed` | boolean | yes |  | Whether people see it. Off, only admins do. |
 | `name` | string | yes | 1 to 80 characters |  |
@@ -2864,7 +2867,7 @@ Take a project out of the portal, with its key and everyone's membership of it. 
 
 Change a project
 
-Change a project's name, description, address, icon, color or whether it is listed. A new address drops the admin key and everyone's own keys for the old one: give the key again.
+Change a project's name, description, address, icon, color, links or whether it is listed. A new address drops the admin key and everyone's own keys for the old one: give the key again.
 
 |  |  |
 |---|---|
@@ -2882,9 +2885,12 @@ Change a project's name, description, address, icon, color or whether it is list
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
 | `base_url` | string | yes | 8 to 300 characters | Where the project is served, e.g. https://todo.example.com: what people's browsers open. |
+| `board_share_url` | string | no | at most 500 characters | A view-only TodoBoard share link (/s/...), handed to everyone who may see the project. |
+| `board_url` | string | no | at most 300 characters | Its TodoBoard board, e.g. https://todo.example.com/b/app. Only admins see it. |
 | `color` | string | no | at most 7 characters | #rrggbb. |
 | `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
 | `description` | string | no | at most 500 characters |  |
+| `github_url` | string | no | at most 300 characters | Where its code is, e.g. https://github.com/me/app. Only admins see it. |
 | `icon` | string | no | at most 40 characters | A Bootstrap Icons name without bi-, e.g. kanban. |
 | `listed` | boolean | yes |  | Whether people see it. Off, only admins do. |
 | `name` | string | yes | 1 to 80 characters |  |
@@ -3442,12 +3448,15 @@ The shapes the routes above refer to by name.
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
 | `base_url` | string | yes |  |  |
+| `board_share_url` | string | yes |  | A view-only TodoBoard share link, which everyone who may see the project gets. |
+| `board_url` | string | yes |  | Its TodoBoard board, for admins. |
 | `check_note` | string | yes |  |  |
 | `checked_at` | string (date-time) or null | yes |  |  |
 | `color` | string | yes |  |  |
 | `created_at` | string (date-time) | yes |  |  |
 | `description` | string | yes |  |  |
 | `excluded_user_ids` | array of integer | yes |  | People it is kept from. |
+| `github_url` | string | yes |  | The project's code, for admins. |
 | `health` | string | yes |  | up, down, or empty before the first check. |
 | `icon` | string | yes |  |  |
 | `id` | integer | yes |  |  |
@@ -3649,6 +3658,7 @@ One of these:
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
 | `base_url` | string | yes |  |  |
+| `board_share_url` | string | yes |  | A view-only link to the project's TodoBoard board, or empty. |
 | `checked_at` | string (date-time) or null | yes |  |  |
 | `color` | string | yes |  |  |
 | `created_at` | string (date-time) | yes |  |  |

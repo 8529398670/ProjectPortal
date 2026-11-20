@@ -33,6 +33,9 @@ type catalogRow struct {
 	Icon            string     `json:"icon"`
 	Color           string     `json:"color"`
 	Listed          bool       `json:"listed"`
+	GitHubURL       string     `json:"github_url" jsonschema_description:"The project's code, for admins."`
+	BoardURL        string     `json:"board_url" jsonschema_description:"Its TodoBoard board, for admins."`
+	BoardShareURL   string     `json:"board_share_url" jsonschema_description:"A view-only TodoBoard share link, which everyone who may see the project gets."`
 	KeySet          bool       `json:"key_set" jsonschema_description:"Whether the portal holds an admin key for it."`
 	KeyStatus       string     `json:"key_status" jsonschema_description:"ok, invalid, not_admin or missing, from the last check."`
 	Health          string     `json:"health" jsonschema_description:"up, down, or empty before the first check."`
@@ -46,13 +49,14 @@ type catalogRow struct {
 
 func ( catalogRow ) APIName() ( name string ) { name = "CatalogProject"; return }
 
-func newCatalogRow( project *models.Project , members int ) ( row catalogRow ) {
+func newCatalogRow( secret_key string , project *models.Project , members int ) ( row catalogRow ) {
 	row = catalogRow{
 		ID: project.ID , Name: project.Name , Description: project.Description , BaseURL: project.BaseURL ,
 		Icon: project.Icon , Color: project.Color , Listed: project.Listed , KeySet: project.AdminKey != "" ,
 		KeyStatus: project.KeyStatus , Health: project.Health , CheckNote: project.CheckNote ,
 		CheckedAt: project.CheckedAt , Members: members , ExcludedUserIDs: project.ExcludedUserIDs ,
 		Position: project.Position , CreatedAt: project.CreatedAt ,
+		GitHubURL: project.GitHubURL , BoardURL: project.BoardURL , BoardShareURL: openShareLink( secret_key , project ) ,
 	}
 	if row.ExcludedUserIDs == nil { row.ExcludedUserIDs = []uint64{} }
 	return
@@ -75,7 +79,7 @@ type listCatalogReply struct {
 // @route("GET /api/admin/projects", summary="The catalog",
 //     tag="Catalog", role=ADMIN,
 //     description="Every project in the portal, a page at a time, with whether its admin key works, "
-//         "whether it is up, and how many people are on it.",
+//         "whether it is up, how many people are on it, and its GitHub and TodoBoard links.",
 //     mcp="admin_list_catalog", read_only=True,
 // )
 func ( handlers *Handlers ) listCatalog( c fiber.Ctx , in *listCatalogRequest ) ( reply *listCatalogReply , err error ) {
@@ -87,7 +91,7 @@ func ( handlers *Handlers ) listCatalog( c fiber.Ctx , in *listCatalogRequest ) 
 	rows := []catalogRow{}
 	for _ , project := range projects {
 		if query != "" && strings.Contains( strings.ToLower( project.Name + " " + project.BaseURL ) , query ) == false { continue }
-		rows = append( rows , newCatalogRow( project , counts[ project.ID ] ) )
+		rows = append( rows , newCatalogRow( handlers.cfg().SecretKey , project , counts[ project.ID ] ) )
 	}
 	reply = &listCatalogReply{}
 	reply.Projects , reply.Paged = sortedPage( rows , in.Sort , in.Direction , in.Page )
@@ -101,13 +105,35 @@ type projectFieldsRequest struct {
 	Icon        string `json:"icon,omitempty" jsonschema:"maxLength=40,pattern=^[a-z0-9-]*$" jsonschema_description:"A Bootstrap Icons name without bi-, e.g. kanban." error:"icon must be a Bootstrap Icons name"`
 	Color       string `json:"color,omitempty" jsonschema:"maxLength=7,pattern=^(#[0-9a-fA-F]{6})?$" jsonschema_description:"#rrggbb." error:"color must be #rrggbb"`
 	Listed      bool   `json:"listed" jsonschema_description:"Whether people see it. Off, only admins do."`
+	GitHubURL     string `json:"github_url,omitempty" jsonschema:"maxLength=300" jsonschema_description:"Where its code is, e.g. https://github.com/me/app. Only admins see it." error:"github_url must be at most 300 characters"`
+	BoardURL      string `json:"board_url,omitempty" jsonschema:"maxLength=300" jsonschema_description:"Its TodoBoard board, e.g. https://todo.example.com/b/app. Only admins see it." error:"board_url must be at most 300 characters"`
+	BoardShareURL string `json:"board_share_url,omitempty" jsonschema:"maxLength=500" jsonschema_description:"A view-only TodoBoard share link (/s/...), handed to everyone who may see the project." error:"board_share_url must be at most 500 characters"`
 }
 
 func ( fields *projectFieldsRequest ) model() ( result models.ProjectFields ) {
 	result = models.ProjectFields{
 		Name: fields.Name , Description: fields.Description , BaseURL: fields.BaseURL ,
 		Icon: fields.Icon , Color: fields.Color , Listed: fields.Listed ,
+		GitHubURL: fields.GitHubURL , BoardURL: fields.BoardURL , BoardShareURL: fields.BoardShareURL ,
 	}
+	return
+}
+
+// sealedFields is what an admin sent, checked, with the share link sealed.
+func ( handlers *Handlers ) sealedFields( in *projectFieldsRequest ) ( fields models.ProjectFields , refused error ) {
+	fields = in.model()
+	if check_err := fields.Check(); check_err != nil {
+		refused = projectFieldsRefusal( check_err )
+		return
+	}
+	fields.SealedShare , refused = models.SealRemoteKey( handlers.cfg().SecretKey , fields.BoardShareURL )
+	return
+}
+
+// openShareLink is a project's view-only board link, or empty.
+func openShareLink( secret_key string , project *models.Project ) ( link string ) {
+	link , err := models.OpenRemoteKey( secret_key , project.BoardShareURL )
+	if err != nil { link = "" }
 	return
 }
 
@@ -122,7 +148,7 @@ type catalogReply struct {
 
 func projectFieldsRefusal( cause error ) ( refused error ) {
 	switch {
-	case errors.Is( cause , models.ErrBadBaseURL ) , errors.Is( cause , models.ErrBadProjectName ):
+	case errors.Is( cause , models.ErrBadBaseURL ) , errors.Is( cause , models.ErrBadProjectName ) , errors.Is( cause , models.ErrBadLinkURL ):
 		refused = refuse( fiber.StatusBadRequest , cause.Error() )
 	case errors.Is( cause , db.ErrNotFound ):
 		refused = refuse( fiber.StatusNotFound , "no such project" )
@@ -158,9 +184,9 @@ func ( handlers *Handlers ) checkAdminKey( name string , base_url string , key s
 //         "join it straight away; the key is checked first and never shown again.",
 // )
 func ( handlers *Handlers ) createProject( c fiber.Ctx , in *createProjectRequest ) ( reply *catalogReply , err error ) {
-	fields := in.model()
-	base_url , url_err := models.NormalizeBaseURL( fields.BaseURL )
-	if url_err != nil { return nil , projectFieldsRefusal( url_err ) }
+	fields , refused := handlers.sealedFields( &in.projectFieldsRequest )
+	if refused != nil { return nil , refused }
+	base_url := fields.BaseURL
 	sealed := ""
 	if key := strings.TrimSpace( in.AdminKey ); key != "" {
 		if sealed , err = handlers.checkAdminKey( fields.Name , base_url , key ); err != nil { return }
@@ -169,7 +195,7 @@ func ( handlers *Handlers ) createProject( c fiber.Ctx , in *createProjectReques
 	if create_err != nil { return nil , projectFieldsRefusal( create_err ) }
 	handlers.audit( c , logs.KindAdmin , "project added" , fiber.Map{ "project_id": project.ID , "name": project.Name , "base_url": project.BaseURL } )
 	if checked , check_err := portal.Check( handlers.Store , handlers.cfg().SecretKey , project ); check_err == nil { project = checked }
-	reply = &catalogReply{ Project: newCatalogRow( project , 0 ) }
+	reply = &catalogReply{ Project: newCatalogRow( handlers.cfg().SecretKey , project , 0 ) }
 	return
 }
 
@@ -188,16 +214,18 @@ type editProjectReply struct {
 //
 // @route("POST /api/admin/projects/{project_id}/edit", summary="Change a project",
 //     tag="Catalog", role=ADMIN, access=SESSION_ONLY, errors=(404,),
-//     description="Change a project's name, description, address, icon, color or whether it is listed. "
+//     description="Change a project's name, description, address, icon, color, links or whether it is listed. "
 //         "A new address drops the admin key and everyone's own keys for the old one: give the key again.",
 // )
 func ( handlers *Handlers ) editProject( c fiber.Ctx , in *editProjectRequest ) ( reply *editProjectReply , err error ) {
-	project , moved , edit_err := models.EditProject( handlers.Store , in.ProjectID , in.model() )
+	fields , refused := handlers.sealedFields( &in.projectFieldsRequest )
+	if refused != nil { return nil , refused }
+	project , moved , edit_err := models.EditProject( handlers.Store , in.ProjectID , fields )
 	if edit_err != nil { return nil , projectFieldsRefusal( edit_err ) }
 	handlers.audit( c , logs.KindAdmin , "project changed" , fiber.Map{ "project_id": project.ID , "name": project.Name , "keys_dropped": moved } )
 	counts , err := models.MemberCounts( handlers.Store )
 	if err != nil { return }
-	reply = &editProjectReply{ Project: newCatalogRow( project , counts[ project.ID ] ) , KeysDropped: moved }
+	reply = &editProjectReply{ Project: newCatalogRow( handlers.cfg().SecretKey , project , counts[ project.ID ] ) , KeysDropped: moved }
 	return
 }
 
@@ -227,7 +255,7 @@ func ( handlers *Handlers ) setProjectKey( c fiber.Ctx , in *projectKeyRequest )
 func ( handlers *Handlers ) catalogReplyFor( project *models.Project ) ( reply *catalogReply , err error ) {
 	counts , err := models.MemberCounts( handlers.Store )
 	if err != nil { return }
-	reply = &catalogReply{ Project: newCatalogRow( project , counts[ project.ID ] ) }
+	reply = &catalogReply{ Project: newCatalogRow( handlers.cfg().SecretKey , project , counts[ project.ID ] ) }
 	return
 }
 

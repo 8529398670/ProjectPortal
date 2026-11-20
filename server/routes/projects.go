@@ -58,17 +58,19 @@ type projectCard struct {
 	Position     int        `json:"position"`
 	LastOpenedAt *time.Time `json:"last_opened_at"`
 	Listed       bool       `json:"listed" jsonschema_description:"false only for a project hidden from everyone but admins."`
+	BoardShareURL string    `json:"board_share_url" jsonschema_description:"A view-only link to the project's TodoBoard board, or empty."`
 }
 
 func ( projectCard ) APIName() ( name string ) { name = "ProjectCard"; return }
 
-func newProjectCard( project *models.Project , membership *models.Membership ) ( card projectCard ) {
+func newProjectCard( secret_key string , project *models.Project , membership *models.Membership ) ( card projectCard ) {
 	card = projectCard{
 		ID: project.ID , Name: project.Name , Description: project.Description , BaseURL: project.BaseURL ,
 		Icon: project.Icon , Color: project.Color , Health: project.Health , CheckedAt: project.CheckedAt ,
 		CreatedAt: project.CreatedAt , New: time.Since( project.CreatedAt ) < newProjectDays * 24 * time.Hour ,
 		Ready: project.AdminKey != "" && project.KeyStatus == models.KeyOK ,
 		Tags: []string{} , Position: project.Position , Listed: project.Listed ,
+		BoardShareURL: openShareLink( secret_key , project ) ,
 	}
 	if membership.Active() {
 		card.Member , card.Via , card.RemoteName = true , membership.Via , membership.RemoteName
@@ -108,7 +110,7 @@ func ( handlers *Handlers ) listProjects( c fiber.Ctx , in *listProjectsRequest 
 	cards := []projectCard{}
 	for _ , project := range projects {
 		if models.CanSee( actor.User.ID , actor.IsAdmin() , project ) == false { continue }
-		card := newProjectCard( project , memberships[ project.ID ] )
+		card := newProjectCard( handlers.cfg().SecretKey , project , memberships[ project.ID ] )
 		if query != "" && cardMatches( card , query ) == false { continue }
 		cards = append( cards , card )
 	}
@@ -378,7 +380,7 @@ func ( handlers *Handlers ) membershipChanged( project_id uint64 , membership *m
 	}
 	project , err := models.GetProject( handlers.Store , project_id )
 	if err != nil { return }
-	reply = &membershipReply{ Project: newProjectCard( project , membership ) }
+	reply = &membershipReply{ Project: newProjectCard( handlers.cfg().SecretKey , project , membership ) }
 	return
 }
 

@@ -31,6 +31,9 @@ const Catalog = {
         icon: value( "project-icon" ),
         color: Dom.get( "project-color-set" ).checked ? Dom.get( "project-color" ).value : "",
         listed: Dom.get( "project-listed" ).checked,
+        github_url: value( "project-github" ),
+        board_url: value( "project-board" ),
+        board_share_url: value( "project-share" ),
       } );
       form.reset();
       Dom.get( "project-listed" ).checked = true;
@@ -66,7 +69,10 @@ const Catalog = {
           project.listed ? null : Dom.el( "div" , { class: "small text-body-secondary" , text: I18n.get( "catalog.hidden" ) } ),
         ].filter( Boolean ) } ),
       ] } );
-      const link = Dom.el( "a" , { class: "text-break" , text: project.base_url , attrs: { href: project.base_url , target: "_blank" , rel: "noopener noreferrer" } } );
+      const link = Dom.el( "div" , { children: [
+        Dom.el( "a" , { class: "text-break" , text: project.base_url , attrs: { href: project.base_url , target: "_blank" , rel: "noopener noreferrer" } } ),
+        this.links( project ),
+      ].filter( Boolean ) } );
       // Why the last check was unhappy, under the status it explains.
       const note = project.check_note ? Dom.el( "div" , { class: "small text-body-secondary text-break" , text: project.check_note } ) : null;
       const down = project.health === "down";
@@ -79,6 +85,21 @@ const Catalog = {
         Dom.el( "td" , { children: [ this.actions( project ) ] } ),
       ] } ) );
     } );
+  },
+
+  // GitHub, the board and its view-only link, as small icons under the address.
+  links( project ) {
+    const items = [
+      [ project.github_url , "bi-github" , "catalog.link_github" ],
+      [ project.board_url , "bi-kanban" , "catalog.link_board" ],
+      [ project.board_share_url , "bi-eye" , "catalog.link_share" ],
+    ].filter( ( [ href ] ) => href );
+    if ( !items.length ) return null;
+    return Dom.el( "div" , { class: "d-flex gap-3 mt-1" , children: items.map( ( [ href , icon , key ] ) => Dom.el( "a" , {
+      class: "link-secondary",
+      attrs: { href , target: "_blank" , rel: "noopener noreferrer" , title: I18n.get( key ) , "aria-label": I18n.get( key ) + ": " + project.name },
+      children: [ Dom.el( "i" , { class: "bi " + icon , attrs: { "aria-hidden": "true" } } ) ],
+    } ) ) } );
   },
 
   actions( project ) {
@@ -110,6 +131,7 @@ const Catalog = {
     return {
       name: project.name , base_url: project.base_url , description: project.description ,
       icon: project.icon , color: project.color , listed: project.listed ,
+      github_url: project.github_url || "" , board_url: project.board_url || "" , board_share_url: project.board_share_url || "",
     };
   },
 
@@ -123,6 +145,9 @@ const Catalog = {
         { name: "description" , label: I18n.get( "catalog.description_label" ) , value: before.description , maxLength: 500 },
         { name: "icon" , label: I18n.get( "catalog.icon_label" ) , value: before.icon , maxLength: 40 , help: I18n.get( "catalog.icon_help" ) },
         { name: "color" , label: I18n.get( "catalog.color_label" ) , value: before.color , maxLength: 7 , placeholder: "#0d6efd" },
+        { name: "github_url" , type: "url" , label: I18n.get( "catalog.github_label" ) , value: before.github_url , maxLength: 300 , placeholder: I18n.get( "catalog.github_placeholder" ) },
+        { name: "board_url" , type: "url" , label: I18n.get( "catalog.board_label" ) , value: before.board_url , maxLength: 300 , placeholder: I18n.get( "catalog.board_placeholder" ) , help: I18n.get( "catalog.links_help" ) },
+        { name: "board_share_url" , type: "url" , label: I18n.get( "catalog.share_label" ) , value: before.board_share_url , maxLength: 500 , help: I18n.get( "catalog.share_help" ) },
         { name: "listed" , type: "checkbox" , label: I18n.get( "catalog.listed_label" ) , value: before.listed },
       ],
       save: ( values ) => Api.editProject( project.id , values ),

@@ -12,7 +12,7 @@ import (
 // whose subkey of secret.key seals it (see encryption.SubKey).
 var rekeyFields = map[string]map[string]string{
 	db.BucketUsers:    { "totp_secret": encryption.PurposeTOTP , "totp_pending": encryption.PurposeTOTP },
-	db.BucketProjects:    { "admin_key": encryption.PurposeRemoteKeys },
+	db.BucketProjects:    { "admin_key": encryption.PurposeRemoteKeys , "board_share_url": encryption.PurposeRemoteKeys },
 	db.BucketMemberships: { "personal_key": encryption.PurposeRemoteKeys },
 }
 

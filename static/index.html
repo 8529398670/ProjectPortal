@@ -698,6 +698,25 @@
                     </div>
                   </div>
                 </div>
+                <div class="col-12 col-md-6">
+                  <label for="project-github" class="form-label" data-i18n="catalog.github_label"></label>
+                  <input id="project-github" class="form-control" name="github_url" type="url" maxlength="300"
+                         aria-describedby="project-links-help" data-i18n-attr="placeholder:catalog.github_placeholder" />
+                </div>
+                <div class="col-12 col-md-6">
+                  <label for="project-board" class="form-label" data-i18n="catalog.board_label"></label>
+                  <input id="project-board" class="form-control" name="board_url" type="url" maxlength="300"
+                         aria-describedby="project-links-help" data-i18n-attr="placeholder:catalog.board_placeholder" />
+                </div>
+                <div class="col-12 mt-1">
+                  <div id="project-links-help" class="form-text mt-0" data-i18n="catalog.links_help"></div>
+                </div>
+                <div class="col-12">
+                  <label for="project-share" class="form-label" data-i18n="catalog.share_label"></label>
+                  <input id="project-share" class="form-control" name="board_share_url" type="url" maxlength="500"
+                         autocomplete="off" aria-describedby="project-share-help" data-i18n-attr="placeholder:catalog.share_placeholder" />
+                  <div id="project-share-help" class="form-text" data-i18n="catalog.share_help"></div>
+                </div>
                 <div class="col-12">
                   <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" role="switch" id="project-listed" name="listed" checked />
