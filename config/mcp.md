@@ -26,16 +26,21 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 | [`admin_delete_remote_user`](#admin_delete_remote_user) | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/delete`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_iddelete) | admin keys | Delete an account on a project (admin) |
 | [`admin_delete_user`](#admin_delete_user) | [`POST /api/admin/users/{user_id}/delete`](api.md#post-apiadminusersuser_iddelete) | admin keys | Delete an account (admin) |
 | [`admin_delete_user_bulk`](#admin_delete_user_bulk) | [`POST /api/bulk/admin/users/delete`](api.md#post-apibulkadminusersdelete) | admin keys | Delete an account, for many at once (admin) |
+| [`admin_dismiss_people`](#admin_dismiss_people) | [`POST /api/admin/people/dismiss`](api.md#post-apiadminpeopledismiss) | admin keys | Dismiss a suggested match (admin) |
+| [`admin_edit_person`](#admin_edit_person) | [`POST /api/admin/people/{person_id}`](api.md#post-apiadminpeopleperson_id) | admin keys | Rename a person (admin) |
 | [`admin_get_theme_defaults`](#admin_get_theme_defaults) | [`GET /api/admin/theme-defaults`](api.md#get-apiadmintheme-defaults) | admin keys | Default themes (admin) |
 | [`admin_grant_project`](#admin_grant_project) | [`POST /api/admin/projects/{project_id}/grant/{user_id}`](api.md#post-apiadminprojectsproject_idgrantuser_id) | admin keys | Put someone on a project (admin) |
+| [`admin_link_people`](#admin_link_people) | [`POST /api/admin/people/link`](api.md#post-apiadminpeoplelink) | admin keys | Link accounts to one person (admin) |
 | [`admin_link_remote_user`](#admin_link_remote_user) | [`POST /api/admin/projects/{project_id}/link/{user_id}`](api.md#post-apiadminprojectsproject_idlinkuser_id) | admin keys | Match someone to their account on a project (admin) |
 | [`admin_list_catalog`](#admin_list_catalog) | [`GET /api/admin/projects`](api.md#get-apiadminprojects) | admin keys | The catalog (admin) |
 | [`admin_list_invite_links`](#admin_list_invite_links) | [`GET /api/admin/invite-links`](api.md#get-apiadmininvite-links) | admin keys | List invite links (admin) |
+| [`admin_list_people`](#admin_list_people) | [`GET /api/admin/people`](api.md#get-apiadminpeople) | admin keys | People across the catalog (admin) |
 | [`admin_list_remote_invite_links`](#admin_list_remote_invite_links) | [`GET /api/admin/projects/{project_id}/invite-links`](api.md#get-apiadminprojectsproject_idinvite-links) | admin keys | A project's invite links (admin) |
 | [`admin_list_remote_keys`](#admin_list_remote_keys) | [`GET /api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys`](api.md#get-apiadminprojectsproject_idremote-usersremote_user_idkeys) | admin keys | An account's API keys on a project (admin) |
 | [`admin_list_remote_users`](#admin_list_remote_users) | [`GET /api/admin/projects/{project_id}/remote-users`](api.md#get-apiadminprojectsproject_idremote-users) | admin keys | A project's own accounts (admin) |
 | [`admin_list_user_sessions`](#admin_list_user_sessions) | [`GET /api/admin/users/{user_id}/sessions`](api.md#get-apiadminusersuser_idsessions) | admin keys | An account's signed-in devices (admin) |
 | [`admin_list_users`](#admin_list_users) | [`GET /api/admin/users`](api.md#get-apiadminusers) | admin keys | List users (admin) |
+| [`admin_merge_people`](#admin_merge_people) | [`POST /api/admin/people/merge`](api.md#post-apiadminpeoplemerge) | admin keys | Merge two people (admin) |
 | [`admin_order_catalog`](#admin_order_catalog) | [`POST /api/admin/projects/order`](api.md#post-apiadminprojectsorder) | admin keys | Order the catalog (admin) |
 | [`admin_project_access`](#admin_project_access) | [`GET /api/admin/projects/{project_id}/access`](api.md#get-apiadminprojectsproject_idaccess) | admin keys | Who may use a project (admin) |
 | [`admin_reissue_login`](#admin_reissue_login) | [`POST /api/admin/users/{user_id}/reissue-login`](api.md#post-apiadminusersuser_idreissue-login) | admin keys | A new login link for an account (admin) |
@@ -57,6 +62,7 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 | [`admin_revoke_remote_key`](#admin_revoke_remote_key) | [`POST /api/admin/projects/{project_id}/keys/{key_id}/revoke`](api.md#post-apiadminprojectsproject_idkeyskey_idrevoke) | admin keys | Revoke an API key on a project (admin) |
 | [`admin_revoke_user_session`](#admin_revoke_user_session) | [`POST /api/admin/users/{user_id}/sessions/{session_id}/revoke`](api.md#post-apiadminusersuser_idsessionssession_idrevoke) | admin keys | Sign out one of an account's devices (admin) |
 | [`admin_revoke_user_session_bulk`](#admin_revoke_user_session_bulk) | [`POST /api/bulk/admin/users/sessions/revoke`](api.md#post-apibulkadminuserssessionsrevoke) | admin keys | Sign out one of an account's devices, for many at once (admin) |
+| [`admin_rotate_project_key`](#admin_rotate_project_key) | [`POST /api/admin/projects/{project_id}/rotate-key`](api.md#post-apiadminprojectsproject_idrotate-key) | admin keys | Rotate a project's key (admin) |
 | [`admin_set_invite_link_limits`](#admin_set_invite_link_limits) | [`POST /api/admin/invite-links/{link_id}/limits`](api.md#post-apiadmininvite-linkslink_idlimits) | admin keys | Change an invite link's places and expiry (admin) |
 | [`admin_set_project_access`](#admin_set_project_access) | [`POST /api/admin/projects/{project_id}/access/{user_id}`](api.md#post-apiadminprojectsproject_idaccessuser_id) | admin keys | Let someone use a project, or not (admin) |
 | [`admin_set_project_access_bulk`](#admin_set_project_access_bulk) | [`POST /api/bulk/admin/projects/access`](api.md#post-apibulkadminprojectsaccess) | admin keys | Let someone use a project, or not, for many at once (admin) |
@@ -71,6 +77,8 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 | [`admin_set_user_role_bulk`](#admin_set_user_role_bulk) | [`POST /api/bulk/admin/users/role`](api.md#post-apibulkadminusersrole) | admin keys | Change an account's role, for many at once (admin) |
 | [`admin_switch_on_invite_link`](#admin_switch_on_invite_link) | [`POST /api/admin/invite-links/{link_id}/switch-on`](api.md#post-apiadmininvite-linkslink_idswitch-on) | admin keys | Switch an invite link back on (admin) |
 | [`admin_switch_on_invite_link_bulk`](#admin_switch_on_invite_link_bulk) | [`POST /api/bulk/admin/invite-links/switch-on`](api.md#post-apibulkadmininvite-linksswitch-on) | admin keys | Switch an invite link back on, for many at once (admin) |
+| [`admin_sync_people`](#admin_sync_people) | [`POST /api/admin/people/sync`](api.md#post-apiadminpeoplesync) | admin keys | Refresh people now (admin) |
+| [`admin_unlink_person`](#admin_unlink_person) | [`POST /api/admin/people/unlink`](api.md#post-apiadminpeopleunlink) | admin keys | Take an account off its person (admin) |
 | [`cancel_my_login_link`](#cancel_my_login_link) | [`POST /api/account/login-link/cancel`](api.md#post-apiaccountlogin-linkcancel) | any key | Stop your own login link working |
 | [`create_my_login_link`](#create_my_login_link) | [`POST /api/account/login-link`](api.md#post-apiaccountlogin-link) | any key | A login link for yourself |
 | [`favorite_project`](#favorite_project) | [`POST /api/projects/{project_id}/favorite`](api.md#post-apiprojectsproject_idfavorite) | any key | Star or unstar a project |
@@ -341,6 +349,45 @@ Runs admin_delete_user once per item: items holds each call's arguments, shared 
 | `items[].user_id` | integer | yes | at least 1 | The account's id, from GET /api/admin/users (admin_list_users over MCP). |
 | `shared` | object | no |  | Fields every item gets, unless the item sets its own. |
 
+## admin_dismiss_people
+
+The accounts in a are not the person of those in b: that match is never suggested again.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/people/dismiss`](api.md#post-apiadminpeopledismiss) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `a` | array of object | yes |  |  |
+| `a[].project_id` | integer | yes | at least 0 | The project, or 0 for this portal. |
+| `a[].remote_user_id` | integer | yes | at least 1 | The account's id there. |
+| `b` | array of object | yes |  |  |
+| `b[].project_id` | integer | yes | at least 0 | The project, or 0 for this portal. |
+| `b[].remote_user_id` | integer | yes | at least 1 | The account's id there. |
+
+## admin_edit_person
+
+The name and notes the portal keeps for a person. Their accounts keep their own names.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/people/{person_id}`](api.md#post-apiadminpeopleperson_id) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `display_name` | string | yes | 1 to 80 characters |  |
+| `notes` | string | yes | at most 2000 characters |  |
+| `person_id` | integer | yes | at least 1 |  |
+
 ## admin_get_theme_defaults
 
 The theme list everyone without their own list sees. themes is null while the built-in ones apply.
@@ -374,6 +421,25 @@ Make someone an account on the project now, as if they had joined, optionally vi
 | `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
 | `role` | string | no | one of `user`, `viewer` | Their role on the project. Default user; viewer (view only) needs an app that has it. |
 | `user_id` | integer | yes | at least 1 | The account's id here. |
+
+## admin_link_people
+
+Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/people/link`](api.md#post-apiadminpeoplelink) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `accounts` | array of object | yes |  | The accounts that are one person. |
+| `accounts[].project_id` | integer | yes | at least 0 | The project, or 0 for this portal. |
+| `accounts[].remote_user_id` | integer | yes | at least 1 | The account's id there. |
+| `person_id` | integer | no |  | Put them under this person; 0 to use the person one of them has, or a new one. |
 
 ## admin_link_remote_user
 
@@ -432,6 +498,21 @@ Group invite links, a page at a time: label, places used and left, expiry, and w
 | `offset` | integer | no | at least 0 | Rows to skip: the next value of the previous page. |
 | `q` | string | no |  | Keep links whose label or maker contains this, in any case. |
 | `sort` | string | no | one of `label`, `used`, `expires_at` | Field to sort the whole list by. Rows without it go last. |
+
+## admin_list_people
+
+Every person and their accounts in each app (project 0 is this portal), the accounts nobody has placed, service accounts, and suggested matches with why. From the last people-sync.
+
+|  |  |
+|---|---|
+| Route | [`GET /api/admin/people`](api.md#get-apiadminpeople) |
+| Read only | yes |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
 
 ## admin_list_remote_invite_links
 
@@ -521,6 +602,23 @@ Accounts, a page at a time, including disabled ones, with each one's role and wh
 | `offset` | integer | no | at least 0 | Rows to skip: the next value of the previous page. |
 | `q` | string | no |  | Keep accounts whose name or username contains this, in any case. |
 | `sort` | string | no | one of `display_name`, `role`, `disabled`, `created_at` | Field to sort the whole list by. Rows without it go last. |
+
+## admin_merge_people
+
+Every account of from goes to into, with its notes, and from is deleted.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/people/merge`](api.md#post-apiadminpeoplemerge) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `from` | integer | yes | at least 1 | The person folded into them, then gone. |
+| `into` | integer | yes | at least 1 | The person who stays. |
 
 ## admin_order_catalog
 
@@ -887,6 +985,22 @@ Runs admin_revoke_user_session once per item: items holds each call's arguments,
 | `items[].user_id` | integer | yes | at least 1 | The account's id, from GET /api/admin/users (admin_list_users over MCP). |
 | `shared` | object | no |  | Fields every item gets, unless the item sets its own. |
 
+## admin_rotate_project_key
+
+Swap the portal's admin key on the project for a new secret, now. The key keeps its grants and its expiry there, and what it made keeps working. Needs an app with key rotation; the key-rotation job also does this every catalog.rotate_key_days.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/projects/{project_id}/rotate-key`](api.md#post-apiadminprojectsproject_idrotate-key) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+
 ## admin_set_invite_link_limits
 
 Set how many people the link may take in (never fewer than have joined) and, when days is given, a new expiry counted from now. The link then counts as this key's: revoking the key switches it off.
@@ -1167,6 +1281,38 @@ Runs admin_switch_on_invite_link once per item: items holds each call's argument
 | `items` | array of object | yes |  | One entry per thing to change: its id, and any field that differs from shared. |
 | `items[].link_id` | string | yes |  | The link's id, from GET /api/admin/invite-links (admin_list_invite_links over MCP). |
 | `shared` | object | no |  | Fields every item gets, unless the item sets its own. |
+
+## admin_sync_people
+
+Start the people-sync job now: every app's accounts and devices, and this portal's. It runs in the background; list people again for the result. It also runs every hour.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/people/sync`](api.md#post-apiadminpeoplesync) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+
+## admin_unlink_person
+
+The account no longer counts as that person's, and is not suggested for them again.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/people/unlink`](api.md#post-apiadminpeopleunlink) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `project_id` | integer | yes | at least 0 | The project, or 0 for this portal. |
+| `remote_user_id` | integer | yes | at least 1 | The account's id there. |
 
 ## cancel_my_login_link
 

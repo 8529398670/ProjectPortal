@@ -236,6 +236,56 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		MCPHTTP: "Manages API keys, which no MCP tool does.",
 		Errors: []int{ 400 , 401 , 403 , 404 },
 	} , handlers.revokeAnyAPIKey , handlers.featureGuards()[ "api_keys" ] , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "GET" , "/api/admin/people" , apidoc.Op{
+		Summary: "People across the catalog",
+		Description: "Every person and their accounts in each app (project 0 is this portal), the accounts nobody has placed, service accounts, and suggested matches with why. From the last people-sync.",
+		Tag: "People",
+		Role: apidoc.Admin,
+		Errors: []int{ 401 , 403 },
+	} , handlers.listPeople , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/people/dismiss" , apidoc.Op{
+		Summary: "Dismiss a suggested match",
+		Description: "The accounts in a are not the person of those in b: that match is never suggested again.",
+		Tag: "People",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 },
+	} , handlers.dismissPeople , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/people/link" , apidoc.Op{
+		Summary: "Link accounts to one person",
+		Description: "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.",
+		Tag: "People",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 },
+	} , handlers.linkPeople , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/people/merge" , apidoc.Op{
+		Summary: "Merge two people",
+		Description: "Every account of from goes to into, with its notes, and from is deleted.",
+		Tag: "People",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 },
+	} , handlers.mergePeople , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/people/sync" , apidoc.Op{
+		Summary: "Refresh people now",
+		Description: "Start the people-sync job now: every app's accounts and devices, and this portal's. It runs in the background; list people again for the result. It also runs every hour.",
+		Tag: "People",
+		Role: apidoc.Admin,
+		Status: 202,
+		Errors: []int{ 400 , 401 , 403 , 409 },
+	} , handlers.syncPeople , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/people/unlink" , apidoc.Op{
+		Summary: "Take an account off its person",
+		Description: "The account no longer counts as that person's, and is not suggested for them again.",
+		Tag: "People",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 },
+	} , handlers.unlinkPerson , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/people/{person_id}" , apidoc.Op{
+		Summary: "Rename a person",
+		Description: "The name and notes the portal keeps for a person. Their accounts keep their own names.",
+		Tag: "People",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 },
+	} , handlers.editPerson , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "GET" , "/api/admin/projects" , apidoc.Op{
 		Summary: "The catalog",
 		Description: "Every project in the portal, a page at a time, with whether its admin key works, whether it is up, how many people are on it, and its GitHub and TodoBoard links.",
@@ -433,6 +483,13 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 , 409 },
 	} , handlers.restoreProject , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/rotate-key" , apidoc.Op{
+		Summary: "Rotate a project's key",
+		Description: "Swap the portal's admin key on the project for a new secret, now. The key keeps its grants and its expiry there, and what it made keeps working. Needs an app with key rotation; the key-rotation job also does this every catalog.rotate_key_days.",
+		Tag: "Catalog",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
+	} , handlers.rotateProjectKey , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "GET" , "/api/admin/theme-defaults" , apidoc.Op{
 		Summary: "Default themes",
 		Description: "The theme list everyone without their own list sees. themes is null while the built-in ones apply.",
@@ -1215,6 +1272,18 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		Destructive: true,
 		AdminOnly: true,
 	} ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/people/dismiss" , handlers.dismissPeople , mcp.Tool{
+		Name: "admin_dismiss_people",
+		Title: "Dismiss a suggested match (admin)",
+		Description: "The accounts in a are not the person of those in b: that match is never suggested again.",
+		AdminOnly: true,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/people/{person_id}" , handlers.editPerson , mcp.Tool{
+		Name: "admin_edit_person",
+		Title: "Rename a person (admin)",
+		Description: "The name and notes the portal keeps for a person. Their accounts keep their own names.",
+		AdminOnly: true,
+	} , nil ) )
 	server.Register( mcp.ForRoute( "GET /api/admin/theme-defaults" , handlers.getThemeDefaults , mcp.Tool{
 		Name: "admin_get_theme_defaults",
 		Title: "Default themes (admin)",
@@ -1226,6 +1295,12 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		Name: "admin_grant_project",
 		Title: "Put someone on a project (admin)",
 		Description: "Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.",
+		AdminOnly: true,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/people/link" , handlers.linkPeople , mcp.Tool{
+		Name: "admin_link_people",
+		Title: "Link accounts to one person (admin)",
+		Description: "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.",
 		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/link/{user_id}" , handlers.linkRemote , mcp.Tool{
@@ -1248,6 +1323,13 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		ReadOnly: true,
 		AdminOnly: true,
 		Enabled: handlers.inviteLinksOn,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "GET /api/admin/people" , handlers.listPeople , mcp.Tool{
+		Name: "admin_list_people",
+		Title: "People across the catalog (admin)",
+		Description: "Every person and their accounts in each app (project 0 is this portal), the accounts nobody has placed, service accounts, and suggested matches with why. From the last people-sync.",
+		ReadOnly: true,
+		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForRoute( "GET /api/admin/projects/{project_id}/invite-links" , handlers.remoteInviteLinks , mcp.Tool{
 		Name: "admin_list_remote_invite_links",
@@ -1282,6 +1364,12 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		Title: "List users (admin)",
 		Description: "Accounts, a page at a time, including disabled ones, with each one's role and which is the owner. next is the offset of the following page, or null on the last one.",
 		ReadOnly: true,
+		AdminOnly: true,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/people/merge" , handlers.mergePeople , mcp.Tool{
+		Name: "admin_merge_people",
+		Title: "Merge two people (admin)",
+		Description: "Every account of from goes to into, with its notes, and from is deleted.",
 		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/order" , handlers.orderProjects , mcp.Tool{
@@ -1430,6 +1518,12 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		Destructive: true,
 		AdminOnly: true,
 	} ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/rotate-key" , handlers.rotateProjectKey , mcp.Tool{
+		Name: "admin_rotate_project_key",
+		Title: "Rotate a project's key (admin)",
+		Description: "Swap the portal's admin key on the project for a new secret, now. The key keeps its grants and its expiry there, and what it made keeps working. Needs an app with key rotation; the key-rotation job also does this every catalog.rotate_key_days.",
+		AdminOnly: true,
+	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/invite-links/{link_id}/limits" , handlers.setInviteLinkLimits , mcp.Tool{
 		Name: "admin_set_invite_link_limits",
 		Title: "Change an invite link's places and expiry (admin)",
@@ -1517,6 +1611,18 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		AdminOnly: true,
 		Enabled: handlers.inviteLinksOn,
 	} ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/people/sync" , handlers.syncPeople , mcp.Tool{
+		Name: "admin_sync_people",
+		Title: "Refresh people now (admin)",
+		Description: "Start the people-sync job now: every app's accounts and devices, and this portal's. It runs in the background; list people again for the result. It also runs every hour.",
+		AdminOnly: true,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/people/unlink" , handlers.unlinkPerson , mcp.Tool{
+		Name: "admin_unlink_person",
+		Title: "Take an account off its person (admin)",
+		Description: "The account no longer counts as that person's, and is not suggested for them again.",
+		AdminOnly: true,
+	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/account/login-link/cancel" , handlers.cancelMyLoginLink , mcp.Tool{
 		Name: "cancel_my_login_link",
 		Title: "Stop your own login link working",

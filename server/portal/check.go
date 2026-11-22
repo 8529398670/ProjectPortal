@@ -32,7 +32,7 @@ func Check( store *db.Store , secret_key string , project *models.Project ) ( ch
 		switch {
 		case key_err == nil && me.Role == models.RoleAdmin:
 			key_status = models.KeyOK
-			if err = models.RecordContract( store , project.ID , me.Version , me.Contract , me.Capabilities ); err != nil { return }
+			if err = models.RecordContract( store , project.ID , me.Version , me.Contract , me.Capabilities , FactsOf( me ) ); err != nil { return }
 		case key_err == nil:
 			key_status , note = models.KeyNotAdmin , "the key works, but only at role "+me.Role
 		case errors.As( key_err , &remote_err ) && remote_err.Unauthorized():
@@ -45,6 +45,55 @@ func Check( store *db.Store , secret_key string , project *models.Project ) ( ch
 		key_status = project.KeyStatus
 	}
 	checked , err = models.RecordCheck( store , project.ID , health , key_status , note )
+	return
+}
+
+// FactsOf is what me says about the key that asked.
+func FactsOf( me *remote.Me ) ( facts models.KeyFacts ) {
+	facts = models.KeyFacts{
+		AccountID: me.ID , Owner: me.Owner || me.IsOwner , Kind: me.Kind ,
+		Skill: me.Skill , SkillCommit: me.SkillCommit ,
+	}
+	if me.Key != nil {
+		facts.Grants , facts.KeyID , facts.KeyName = true , me.Key.ID , me.Key.Name
+		facts.MayMintKeys , facts.MaySignIn , facts.ExpiresAt = me.Key.MayMintKeys , me.Key.MaySignIn , me.Key.ExpiresAt
+	}
+	return
+}
+
+// Key warnings, as the Catalog row lists them.
+const (
+	WarnOwnerKey    = "owner_key"    // works, but it is the owner's own key: Connect instead
+	WarnNotService  = "not_service"  // a person's admin key, not the portal's service account
+	WarnCannotMint  = "cannot_mint"  // the app makes keys, but this key may not
+	WarnExpiresSoon = "expires_soon" // under ExpiryWarning left
+	WarnExpired     = "expired"
+)
+
+// ExpiryWarning is how long before a key's expiry the portal starts saying so.
+const ExpiryWarning = 30 * 24 * time.Hour
+
+// KeyWarnings is what is wrong, or about to be, with a project's working
+// admin key, from its last check. None before contract v3.
+func KeyWarnings( project *models.Project , now time.Time ) ( warnings []string ) {
+	warnings = []string{}
+	facts := project.KeyFacts
+	if project.AdminKey == "" || project.KeyStatus != models.KeyOK || project.Contract < 3 { return }
+	if facts.Owner { warnings = append( warnings , WarnOwnerKey ) }
+	if facts.Owner == false && facts.Kind != "" && facts.Kind != remote.KindService && remote.Has( project.Capabilities , remote.CapServiceAccounts ) {
+		warnings = append( warnings , WarnNotService )
+	}
+	if facts.Grants && facts.MayMintKeys == false && remote.Has( project.Capabilities , remote.CapKeyMinting ) {
+		warnings = append( warnings , WarnCannotMint )
+	}
+	if facts.Grants && facts.ExpiresAt != nil {
+		switch left := facts.ExpiresAt.Sub( now ); {
+		case left <= 0:
+			warnings = append( warnings , WarnExpired )
+		case left < ExpiryWarning:
+			warnings = append( warnings , WarnExpiresSoon )
+		}
+	}
 	return
 }
 

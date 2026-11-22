@@ -9,6 +9,7 @@ import (
 
 	db "projectportal/server/db"
 	models "projectportal/server/models"
+	portal "projectportal/server/portal"
 	remote "projectportal/server/remote"
 )
 
@@ -71,6 +72,8 @@ func SetProjectKey( store *db.Store , secret_key string , which string , key str
 	sealed , err := models.SealRemoteKey( secret_key , key )
 	if err != nil { return }
 	if project , err = models.SetProjectKey( store , project.ID , sealed ); err != nil { return }
+	// Record who the key is there and what it may do, as Check now would.
+	if checked , check_err := portal.Check( store , secret_key , project ); check_err == nil { project = checked }
 	row = projectResponse( project )
 	return
 }

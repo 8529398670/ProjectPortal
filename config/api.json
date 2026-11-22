@@ -228,6 +228,10 @@
           "base_url": {
             "type": "string"
           },
+          "behind": {
+            "description": "skill_commit differs from the template commit set in Settings.",
+            "type": "boolean"
+          },
           "board_share_url": {
             "description": "A view-only TodoBoard share link, which everyone who may see the project gets.",
             "type": "string"
@@ -237,7 +241,7 @@
             "type": "string"
           },
           "capabilities": {
-            "description": "What Manage project may do there: viewer_role, account_expiry, key_minting, invite_links, key_sign_in.",
+            "description": "What Manage project may do there: viewer_role, account_expiry, key_minting, invite_links, key_sign_in, and on contract 3 service_accounts, key_grants, error_codes, key_rotation, admin_sessions.",
             "items": {
               "type": "string"
             },
@@ -288,6 +292,72 @@
           "id": {
             "type": "integer"
           },
+          "key": {
+            "description": "Who the portal's admin key is there and what it may do, from the last check (contract 3).",
+            "properties": {
+              "account_id": {
+                "description": "The account the key belongs to there: the portal's own.",
+                "type": "integer"
+              },
+              "expires_at": {
+                "description": "When the key stops working there; null for never or unknown.",
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "grants": {
+                "description": "The app reported what this key may do.",
+                "type": "boolean"
+              },
+              "kind": {
+                "description": "person or service; empty before contract 3.",
+                "type": "string"
+              },
+              "may_mint_keys": {
+                "type": "boolean"
+              },
+              "may_sign_in": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "owner": {
+                "description": "The key is the app owner's own: it works, but should be a Connect key.",
+                "type": "boolean"
+              },
+              "rotated_at": {
+                "description": "When the portal last stored or rotated it.",
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "warnings": {
+                "description": "owner_key, not_service, cannot_mint, expires_soon, expired.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "account_id",
+              "expires_at",
+              "grants",
+              "kind",
+              "may_mint_keys",
+              "may_sign_in",
+              "name",
+              "owner",
+              "rotated_at",
+              "warnings"
+            ],
+            "type": "object"
+          },
           "key_set": {
             "description": "Whether the portal holds an admin key for it.",
             "type": "boolean"
@@ -299,6 +369,10 @@
           "listed": {
             "type": "boolean"
           },
+          "may_rotate": {
+            "description": "Rotate now works: a working key on an app with key rotation.",
+            "type": "boolean"
+          },
           "members": {
             "type": "integer"
           },
@@ -308,6 +382,14 @@
           "position": {
             "type": "integer"
           },
+          "skill": {
+            "description": "The template the app came from: go-webserver or python-webserver. Empty when it does not say.",
+            "type": "string"
+          },
+          "skill_commit": {
+            "description": "The template commit the app was last built from.",
+            "type": "string"
+          },
           "version": {
             "description": "The app's version, from its last check.",
             "type": "string"
@@ -315,6 +397,7 @@
         },
         "required": [
           "base_url",
+          "behind",
           "board_share_url",
           "board_url",
           "capabilities",
@@ -329,12 +412,16 @@
           "health",
           "icon",
           "id",
+          "key",
           "key_set",
           "key_status",
           "listed",
+          "may_rotate",
           "members",
           "name",
           "position",
+          "skill",
+          "skill_commit",
           "version"
         ],
         "type": "object"
@@ -1090,6 +1177,171 @@
         ],
         "type": "object"
       },
+      "PeopleSuggestion": {
+        "properties": {
+          "a": {
+            "description": "One side: a person's accounts, or one account nobody has placed.",
+            "items": {
+              "$ref": "#/components/schemas/PersonAccount"
+            },
+            "type": "array"
+          },
+          "a_person_id": {
+            "type": "integer"
+          },
+          "b": {
+            "items": {
+              "$ref": "#/components/schemas/PersonAccount"
+            },
+            "type": "array"
+          },
+          "b_person_id": {
+            "type": "integer"
+          },
+          "reasons": {
+            "description": "same_name, shared_ip, same_agent, close_in.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "score": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "a",
+          "b",
+          "reasons",
+          "score"
+        ],
+        "type": "object"
+      },
+      "Person": {
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/PersonAccount"
+            },
+            "type": "array"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accounts",
+          "display_name",
+          "id",
+          "notes"
+        ],
+        "type": "object"
+      },
+      "PersonAccount": {
+        "properties": {
+          "devices": {
+            "description": "Its signed-in devices, when devices_listed.",
+            "items": {
+              "properties": {
+                "created_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "ip": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "last_seen_at": {
+                  "format": "date-time",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "user_agent": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "created_at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "devices_listed": {
+            "description": "The app listed this account's devices (it has admin_sessions and the portal's key may read them).",
+            "type": "boolean"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "hand_made_portal": {
+            "description": "A person's account named like the portal's: one made by hand for the portal before Connect. Delete it in that app.",
+            "type": "boolean"
+          },
+          "kind": {
+            "description": "person or service; empty from an app before contract 3.",
+            "type": "string"
+          },
+          "owner": {
+            "type": "boolean"
+          },
+          "portal": {
+            "description": "The account the portal's own key belongs to there.",
+            "type": "boolean"
+          },
+          "project_id": {
+            "description": "The project, or 0 for this portal's own accounts.",
+            "type": "integer"
+          },
+          "project_name": {
+            "type": "string"
+          },
+          "remote_user_id": {
+            "description": "The account's id there (a user id here for project 0).",
+            "type": "integer"
+          },
+          "role": {
+            "type": "string"
+          },
+          "synced_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "devices",
+          "devices_listed",
+          "disabled",
+          "display_name",
+          "expired",
+          "hand_made_portal",
+          "kind",
+          "owner",
+          "portal",
+          "project_id",
+          "project_name",
+          "remote_user_id",
+          "role",
+          "synced_at"
+        ],
+        "type": "object"
+      },
       "PortalAccount": {
         "properties": {
           "display_name": {
@@ -1303,6 +1555,10 @@
       },
       "RemoteUser": {
         "properties": {
+          "acts": {
+            "description": "Whether the portal's key may act on this account there: never the owner, and another admin only with the owner's key.",
+            "type": "boolean"
+          },
           "disabled": {
             "type": "boolean"
           },
@@ -1323,7 +1579,15 @@
           "id": {
             "type": "integer"
           },
+          "kind": {
+            "description": "person or service (the app's own word; empty before contract 3).",
+            "type": "string"
+          },
           "owner": {
+            "type": "boolean"
+          },
+          "portal": {
+            "description": "The account the portal's own admin key belongs to there.",
             "type": "boolean"
           },
           "portal_name": {
@@ -1338,12 +1602,15 @@
           }
         },
         "required": [
+          "acts",
           "disabled",
           "display_name",
           "expired",
           "expires_at",
           "id",
+          "kind",
           "owner",
+          "portal",
           "role"
         ],
         "type": "object"
@@ -4774,6 +5041,765 @@
       },
       "x-feature": "api_keys"
     },
+    "/api/admin/people": {
+      "get": {
+        "description": "Every person and their accounts in each app (project 0 is this portal), the accounts nobody has placed, service accounts, and suggested matches with why. From the last people-sync.",
+        "operationId": "get_api_admin_people",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "people": {
+                      "items": {
+                        "$ref": "#/components/schemas/Person"
+                      },
+                      "type": "array"
+                    },
+                    "service": {
+                      "description": "Service accounts (the portal's own among them) and hand-made portal accounts: never a person's.",
+                      "items": {
+                        "$ref": "#/components/schemas/PersonAccount"
+                      },
+                      "type": "array"
+                    },
+                    "suggestions": {
+                      "items": {
+                        "$ref": "#/components/schemas/PeopleSuggestion"
+                      },
+                      "type": "array"
+                    },
+                    "synced_at": {
+                      "description": "When the oldest account was last seen; null before the first sync.",
+                      "format": "date-time",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "unlinked": {
+                      "description": "Accounts of people nobody has placed yet.",
+                      "items": {
+                        "$ref": "#/components/schemas/PersonAccount"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "people",
+                    "service",
+                    "suggestions",
+                    "synced_at",
+                    "unlinked"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "People across the catalog",
+        "tags": [
+          "People"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/people/dismiss": {
+      "post": {
+        "description": "The accounts in a are not the person of those in b: that match is never suggested again.",
+        "operationId": "post_api_admin_people_dismiss",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "a": {
+                    "items": {
+                      "properties": {
+                        "project_id": {
+                          "description": "The project, or 0 for this portal.",
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "remote_user_id": {
+                          "description": "The account's id there.",
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "project_id",
+                        "remote_user_id"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 200,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "b": {
+                    "items": {
+                      "properties": {
+                        "project_id": {
+                          "description": "The project, or 0 for this portal.",
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "remote_user_id": {
+                          "description": "The account's id there.",
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "project_id",
+                        "remote_user_id"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 200,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Dismiss a suggested match",
+        "tags": [
+          "People"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/people/link": {
+      "post": {
+        "description": "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.",
+        "operationId": "post_api_admin_people_link",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "accounts": {
+                    "description": "The accounts that are one person.",
+                    "items": {
+                      "properties": {
+                        "project_id": {
+                          "description": "The project, or 0 for this portal.",
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "remote_user_id": {
+                          "description": "The account's id there.",
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "project_id",
+                        "remote_user_id"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 200,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "person_id": {
+                    "description": "Put them under this person; 0 to use the person one of them has, or a new one.",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "accounts"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "person": {
+                      "oneOf": [
+                        {
+                          "properties": {
+                            "created_at": {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            "display_name": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "integer"
+                            },
+                            "notes": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "format": "date-time",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "created_at",
+                            "display_name",
+                            "id",
+                            "updated_at"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "person"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Link accounts to one person",
+        "tags": [
+          "People"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/people/merge": {
+      "post": {
+        "description": "Every account of from goes to into, with its notes, and from is deleted.",
+        "operationId": "post_api_admin_people_merge",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "from": {
+                    "description": "The person folded into them, then gone.",
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "into": {
+                    "description": "The person who stays.",
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "from",
+                  "into"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "person": {
+                      "oneOf": [
+                        {
+                          "properties": {
+                            "created_at": {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            "display_name": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "integer"
+                            },
+                            "notes": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "format": "date-time",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "created_at",
+                            "display_name",
+                            "id",
+                            "updated_at"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "person"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Merge two people",
+        "tags": [
+          "People"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/people/sync": {
+      "post": {
+        "description": "Start the people-sync job now: every app's accounts and devices, and this portal's. It runs in the background; list people again for the result. It also runs every hour.",
+        "operationId": "post_api_admin_people_sync",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Refresh people now",
+        "tags": [
+          "People"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/people/unlink": {
+      "post": {
+        "description": "The account no longer counts as that person's, and is not suggested for them again.",
+        "operationId": "post_api_admin_people_unlink",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "project_id": {
+                    "description": "The project, or 0 for this portal.",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "remote_user_id": {
+                    "description": "The account's id there.",
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "project_id",
+                  "remote_user_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Take an account off its person",
+        "tags": [
+          "People"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/people/{person_id}": {
+      "post": {
+        "description": "The name and notes the portal keeps for a person. Their accounts keep their own names.",
+        "operationId": "post_api_admin_people_person_id",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "display_name": {
+                    "maxLength": 80,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "notes": {
+                    "maxLength": 2000,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "display_name",
+                  "notes"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "person": {
+                      "oneOf": [
+                        {
+                          "properties": {
+                            "created_at": {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            "display_name": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "integer"
+                            },
+                            "notes": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "format": "date-time",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "created_at",
+                            "display_name",
+                            "id",
+                            "updated_at"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "person"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Rename a person",
+        "tags": [
+          "People"
+        ],
+        "x-required-role": "admin"
+      }
+    },
     "/api/admin/projects": {
       "get": {
         "description": "Every project in the portal, a page at a time, with whether its admin key works, whether it is up, how many people are on it, and its GitHub and TodoBoard links.",
@@ -7814,6 +8840,98 @@
           }
         ],
         "summary": "Undo deleting a project",
+        "tags": [
+          "Catalog"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/projects/{project_id}/rotate-key": {
+      "post": {
+        "description": "Swap the portal's admin key on the project for a new secret, now. The key keeps its grants and its expiry there, and what it made keeps working. Needs an app with key rotation; the key-rotation job also does this every catalog.rotate_key_days.",
+        "operationId": "post_api_admin_projects_project_id_rotate_key",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "project": {
+                      "$ref": "#/components/schemas/CatalogProject"
+                    }
+                  },
+                  "required": [
+                    "project"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Rotate a project's key",
         "tags": [
           "Catalog"
         ],
@@ -15068,6 +16186,9 @@
     },
     {
       "name": "Manage project"
+    },
+    {
+      "name": "People"
     },
     {
       "name": "Projects"

@@ -21,6 +21,18 @@ func Portal( registry *Registry , store *db.Store , settings *config.Holder ) {
 		note = fmt.Sprintf( "%d of %d projects up" , up , total )
 		return
 	} )
+	// Hourly, so a key due today rotates within the hour; each key itself
+	// rotates every catalog.rotate_key_days.
+	registry.Register( "key-rotation" , housekeepingInterval , func() ( note string , err error ) {
+		rotated , err := portal.RotateDue( store , settings.Get().SecretKey , settings.Get().Catalog.RotateKeyAfter )
+		note = fmt.Sprintf( "rotated %d keys" , rotated )
+		return
+	} )
+	registry.Register( "people-sync" , housekeepingInterval , func() ( note string , err error ) {
+		accounts , err := portal.SyncPeople( store , settings.Get().SecretKey )
+		note = fmt.Sprintf( "%d accounts seen" , accounts )
+		return
+	} )
 	registry.Register( "portal-purge" , housekeepingInterval , func() ( note string , err error ) {
 		projects , projects_err := models.PurgeDeletedProjects( store )
 		orphans , orphans_err := models.PurgeOrphanMemberships( store )

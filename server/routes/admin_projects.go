@@ -7,6 +7,7 @@ import (
 
 	fiber "github.com/gofiber/fiber/v3"
 
+	config "projectportal/server/config"
 	db "projectportal/server/db"
 	logs "projectportal/server/logs"
 	models "projectportal/server/models"
@@ -47,12 +48,32 @@ type catalogRow struct {
 	CreatedAt       time.Time  `json:"created_at"`
 	Version         string     `json:"version" jsonschema_description:"The app's version, from its last check."`
 	Contract        int        `json:"contract" jsonschema_description:"Which portal contract it speaks: 2 lets Manage project do everything its capabilities list; 0 is older."`
-	Capabilities    []string   `json:"capabilities" jsonschema_description:"What Manage project may do there: viewer_role, account_expiry, key_minting, invite_links, key_sign_in."`
+	Capabilities    []string   `json:"capabilities" jsonschema_description:"What Manage project may do there: viewer_role, account_expiry, key_minting, invite_links, key_sign_in, and on contract 3 service_accounts, key_grants, error_codes, key_rotation, admin_sessions."`
+	Key             catalogKey `json:"key" jsonschema_description:"Who the portal's admin key is there and what it may do, from the last check (contract 3)."`
+	Skill           string     `json:"skill" jsonschema_description:"The template the app came from: go-webserver or python-webserver. Empty when it does not say."`
+	SkillCommit     string     `json:"skill_commit" jsonschema_description:"The template commit the app was last built from."`
+	Behind          bool       `json:"behind" jsonschema_description:"skill_commit differs from the template commit set in Settings."`
+	MayRotate       bool       `json:"may_rotate" jsonschema_description:"Rotate now works: a working key on an app with key rotation."`
+}
+
+// catalogKey is what a Catalog row says about the portal's key, never the key.
+type catalogKey struct {
+	AccountID   uint64     `json:"account_id" jsonschema_description:"The account the key belongs to there: the portal's own."`
+	Owner       bool       `json:"owner" jsonschema_description:"The key is the app owner's own: it works, but should be a Connect key."`
+	Kind        string     `json:"kind" jsonschema_description:"person or service; empty before contract 3."`
+	Grants      bool       `json:"grants" jsonschema_description:"The app reported what this key may do."`
+	Name        string     `json:"name"`
+	MayMintKeys bool       `json:"may_mint_keys"`
+	MaySignIn   bool       `json:"may_sign_in"`
+	ExpiresAt   *time.Time `json:"expires_at" jsonschema_description:"When the key stops working there; null for never or unknown."`
+	RotatedAt   *time.Time `json:"rotated_at" jsonschema_description:"When the portal last stored or rotated it."`
+	Warnings    []string   `json:"warnings" jsonschema_description:"owner_key, not_service, cannot_mint, expires_soon, expired."`
 }
 
 func ( catalogRow ) APIName() ( name string ) { name = "CatalogProject"; return }
 
-func newCatalogRow( secret_key string , project *models.Project , members int ) ( row catalogRow ) {
+func newCatalogRow( cfg *config.Config , project *models.Project , members int ) ( row catalogRow ) {
+	secret_key , template_commit := cfg.SecretKey , cfg.Catalog.TemplateCommit
 	row = catalogRow{
 		ID: project.ID , Name: project.Name , Description: project.Description , BaseURL: project.BaseURL ,
 		Icon: project.Icon , Color: project.Color , Listed: project.Listed , KeySet: project.AdminKey != "" ,
@@ -64,6 +85,24 @@ func newCatalogRow( secret_key string , project *models.Project , members int ) 
 	if row.ExcludedUserIDs == nil { row.ExcludedUserIDs = []uint64{} }
 	row.Version , row.Contract , row.Capabilities = project.Version , project.Contract , project.Capabilities
 	if row.Capabilities == nil { row.Capabilities = []string{} }
+	facts := project.KeyFacts
+	row.Key = catalogKey{
+		AccountID: facts.AccountID , Owner: facts.Owner , Kind: facts.Kind , Grants: facts.Grants , Name: facts.KeyName ,
+		MayMintKeys: facts.MayMintKeys , MaySignIn: facts.MaySignIn , ExpiresAt: facts.ExpiresAt ,
+		RotatedAt: project.KeyRotatedAt , Warnings: portal.KeyWarnings( project , time.Now() ) ,
+	}
+	row.Skill , row.SkillCommit = facts.Skill , facts.SkillCommit
+	row.Behind = behindTemplate( template_commit , facts.SkillCommit )
+	row.MayRotate = portal.MayRotate( project )
+	return
+}
+
+// behindTemplate is whether an app's template commit differs from the one
+// set in Settings. Either may be a short sha; empty means unknown, not behind.
+func behindTemplate( template_commit string , skill_commit string ) ( behind bool ) {
+	template_commit , skill_commit = strings.ToLower( strings.TrimSpace( template_commit ) ) , strings.ToLower( strings.TrimSpace( skill_commit ) )
+	if template_commit == "" || skill_commit == "" { return }
+	behind = strings.HasPrefix( template_commit , skill_commit ) == false && strings.HasPrefix( skill_commit , template_commit ) == false
 	return
 }
 
@@ -96,7 +135,7 @@ func ( handlers *Handlers ) listCatalog( c fiber.Ctx , in *listCatalogRequest ) 
 	rows := []catalogRow{}
 	for _ , project := range projects {
 		if query != "" && strings.Contains( strings.ToLower( project.Name + " " + project.BaseURL ) , query ) == false { continue }
-		rows = append( rows , newCatalogRow( handlers.cfg().SecretKey , project , counts[ project.ID ] ) )
+		rows = append( rows , newCatalogRow( handlers.cfg() , project , counts[ project.ID ] ) )
 	}
 	reply = &listCatalogReply{}
 	reply.Projects , reply.Paged = sortedPage( rows , in.Sort , in.Direction , in.Page )
@@ -200,7 +239,7 @@ func ( handlers *Handlers ) createProject( c fiber.Ctx , in *createProjectReques
 	if create_err != nil { return nil , projectFieldsRefusal( create_err ) }
 	handlers.audit( c , logs.KindAdmin , "project added" , fiber.Map{ "project_id": project.ID , "name": project.Name , "base_url": project.BaseURL } )
 	if checked , check_err := portal.Check( handlers.Store , handlers.cfg().SecretKey , project ); check_err == nil { project = checked }
-	reply = &catalogReply{ Project: newCatalogRow( handlers.cfg().SecretKey , project , 0 ) }
+	reply = &catalogReply{ Project: newCatalogRow( handlers.cfg() , project , 0 ) }
 	return
 }
 
@@ -230,7 +269,7 @@ func ( handlers *Handlers ) editProject( c fiber.Ctx , in *editProjectRequest ) 
 	handlers.audit( c , logs.KindAdmin , "project changed" , fiber.Map{ "project_id": project.ID , "name": project.Name , "keys_dropped": moved } )
 	counts , err := models.MemberCounts( handlers.Store )
 	if err != nil { return }
-	reply = &editProjectReply{ Project: newCatalogRow( handlers.cfg().SecretKey , project , counts[ project.ID ] ) , KeysDropped: moved }
+	reply = &editProjectReply{ Project: newCatalogRow( handlers.cfg() , project , counts[ project.ID ] ) , KeysDropped: moved }
 	return
 }
 
@@ -253,6 +292,7 @@ func ( handlers *Handlers ) setProjectKey( c fiber.Ctx , in *projectKeyRequest )
 	if err != nil { return }
 	if project , err = models.SetProjectKey( handlers.Store , in.ProjectID , sealed ); err != nil { return nil , projectFieldsRefusal( err ) }
 	handlers.audit( c , logs.KindAdmin , "project key set" , fiber.Map{ "project_id": project.ID } )
+	if checked , check_err := portal.Check( handlers.Store , handlers.cfg().SecretKey , project ); check_err == nil { project = checked }
 	reply , err = handlers.catalogReplyFor( project )
 	return
 }
@@ -260,7 +300,27 @@ func ( handlers *Handlers ) setProjectKey( c fiber.Ctx , in *projectKeyRequest )
 func ( handlers *Handlers ) catalogReplyFor( project *models.Project ) ( reply *catalogReply , err error ) {
 	counts , err := models.MemberCounts( handlers.Store )
 	if err != nil { return }
-	reply = &catalogReply{ Project: newCatalogRow( handlers.cfg().SecretKey , project , counts[ project.ID ] ) }
+	reply = &catalogReply{ Project: newCatalogRow( handlers.cfg() , project , counts[ project.ID ] ) }
+	return
+}
+
+// rotateProjectKey is Rotate now: a new secret for the portal's key there.
+//
+// @route("POST /api/admin/projects/{project_id}/rotate-key", summary="Rotate a project's key",
+//     tag="Catalog", role=ADMIN, errors=(404, 409, 424),
+//     description="Swap the portal's admin key on the project for a new secret, now. The key keeps its "
+//         "grants and its expiry there, and what it made keeps working. Needs an app with key rotation; "
+//         "the key-rotation job also does this every catalog.rotate_key_days.",
+//     mcp="admin_rotate_project_key",
+// )
+func ( handlers *Handlers ) rotateProjectKey( c fiber.Ctx , in *projectIDPath ) ( reply *catalogReply , err error ) {
+	project , get_err := models.GetProject( handlers.Store , in.ProjectID )
+	if get_err != nil { return nil , projectFieldsRefusal( get_err ) }
+	if portal.MayRotate( project ) == false { return nil , refuse( fiber.StatusConflict , project.Name + ": " + portal.ErrCannotRotate.Error() ) }
+	rotated , rotate_err := portal.Rotate( handlers.Store , handlers.cfg().SecretKey , project )
+	if rotate_err != nil { return nil , refuse( fiber.StatusFailedDependency , rotate_err.Error() ) }
+	handlers.audit( c , logs.KindAdmin , "project key rotated" , fiber.Map{ "project_id": project.ID } )
+	reply , err = handlers.catalogReplyFor( rotated )
 	return
 }
 
@@ -492,6 +552,11 @@ type remoteUser struct {
 	Expired     bool   `json:"expired"`
 	PortalUserID uint64 `json:"portal_user_id,omitempty" jsonschema_description:"Who it belongs to here, when someone is on the project with it."`
 	PortalName  string `json:"portal_name,omitempty"`
+	Kind        string `json:"kind" jsonschema_description:"person or service (the app's own word; empty before contract 3)."`
+	Portal      bool   `json:"portal" jsonschema_description:"The account the portal's own admin key belongs to there."`
+	// Acts is whether the portal's key may run this account at all: the
+	// app's ladder keeps an admin's (a service account's too) to the owner.
+	Acts bool `json:"acts" jsonschema_description:"Whether the portal's key may act on this account there: never the owner, and another admin only with the owner's key."`
 }
 
 func ( remoteUser ) APIName() ( name string ) { name = "RemoteUser"; return }
@@ -522,7 +587,9 @@ func ( handlers *Handlers ) remoteUsers( c fiber.Ctx , in *remoteUsersRequest ) 
 	if err != nil { return }
 	reply = &remoteUsersReply{ Users: []remoteUser{} , Paged: Paged{ Next: next , Total: total } }
 	for _ , user := range users {
-		row := remoteUser{ ID: user.ID , DisplayName: user.DisplayName , Role: user.Role , Disabled: user.Disabled , Owner: user.Owner , ExpiresAt: user.ExpiresAt , Expired: user.Expired }
+		row := remoteUser{ ID: user.ID , DisplayName: user.DisplayName , Role: user.Role , Disabled: user.Disabled , Owner: user.Owner , ExpiresAt: user.ExpiresAt , Expired: user.Expired , Kind: user.Kind }
+		row.Portal = project.KeyFacts.AccountID != 0 && user.ID == project.KeyFacts.AccountID
+		row.Acts = portal.MayActOn( project , user )
 		if person := owners[ user.ID ]; person != nil { row.PortalUserID , row.PortalName = person.ID , person.DisplayName }
 		reply.Users = append( reply.Users , row )
 	}
@@ -571,6 +638,10 @@ func ( handlers *Handlers ) linkRemote( c fiber.Ctx , in *linkRemoteRequest ) ( 
 	if err != nil { return }
 	if found.Owner {
 		err = refuse( fiber.StatusConflict , "that is the project's owner: nobody can make them a link from outside. They attach their own key instead" )
+		return
+	}
+	if found.Kind == remote.KindService || ( project.KeyFacts.AccountID != 0 && found.ID == project.KeyFacts.AccountID ) {
+		err = refuse( fiber.StatusConflict , "that is a service account (the portal's own, or another one): nobody signs into it, so it is no one's account" )
 		return
 	}
 	membership := models.Membership{

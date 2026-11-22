@@ -46,12 +46,17 @@ const (
 	// which project. See models/project.go and models/membership.go.
 	BucketProjects    = "projects"
 	BucketMemberships = "memberships"
+	// People across the catalog (models/person.go).
+	BucketPeople           = "people"
+	BucketAccountLinks     = "account_links"
+	BucketAccountSnapshots = "account_snapshots"
+	BucketPeopleDismissed  = "people_dismissed"
 	BucketMeta        = "meta"
 	// BucketSchema holds the schema version, unencrypted. See migrate.go.
 	BucketSchema      = "schema"
 )
 
-var bucketNames = []string{ BucketUsers , BucketSessions , BucketLoginTokens , BucketAPIKeys , BucketInviteLinks , BucketSignInChallenges , BucketJobs , BucketWebhooks , BucketWebhookDeliveries , BucketFiles , BucketIPNames , BucketProjects , BucketMemberships , BucketMeta , BucketSchema }
+var bucketNames = []string{ BucketUsers , BucketSessions , BucketLoginTokens , BucketAPIKeys , BucketInviteLinks , BucketSignInChallenges , BucketJobs , BucketWebhooks , BucketWebhookDeliveries , BucketFiles , BucketIPNames , BucketProjects , BucketMemberships , BucketPeople , BucketAccountLinks , BucketAccountSnapshots , BucketPeopleDismissed , BucketMeta , BucketSchema }
 
 type Store struct {
 	bolt          *bolt.DB

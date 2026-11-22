@@ -217,6 +217,7 @@ const App = {
       loading.push( Catalog.init( me ) );
       loading.push( Access.init( me ) );
       loading.push( Manage.init( me ) );
+      loading.push( People.init( me ) );
       loading.push( Invites.init( me ) );
       loading.push( Logs.init( me ) );
       loading.push( Jobs.init( me ) );

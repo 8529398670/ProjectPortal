@@ -123,14 +123,22 @@ const Manage = {
     Dom.text( behind , reason );
     Dom.show( behind , reason !== "" );
     this.gate( "invites" , "invite_links" );
-    this.gate( "keys" , "key_minting" );
+    this.gate( "keys" , "key_minting" , this.mintingBlocked() ? "manage.keys_no_grant" : null );
   },
 
-  gate( pane , capability ) {
-    const on = this.has( capability );
+  // An app that says what the portal's key may do, and it may not make keys.
+  mintingBlocked() {
+    const key = this.project().key || {};
+    return this.has( "key_grants" ) && key.grants && !key.may_mint_keys;
+  },
+
+  // A pane shows only where the app has capability; blockedKey, when given,
+  // keeps it shut anyway and says why.
+  gate( pane , capability , blockedKey ) {
+    const on = this.has( capability ) && !blockedKey;
     Dom.show( Dom.get( "manage-" + pane + "-on" ) , on );
     const off = Dom.get( "manage-" + pane + "-off" );
-    Dom.text( off , I18n.get( "manage." + pane + "_off" ).replace( "{name}" , () => this.project().name || "" ) );
+    Dom.text( off , I18n.get( blockedKey || "manage." + pane + "_off" ).replace( /\{name\}/g , () => this.project().name || "" ) );
     Dom.show( off , !on );
   },
 
@@ -192,6 +200,8 @@ const Manage = {
   personStatus( user ) {
     const parts = [];
     if ( user.owner ) parts.push( Dom.badge( I18n.get( "manage.owner" ) , "dark" ) );
+    if ( user.portal ) parts.push( Dom.badge( I18n.get( "manage.this_portal" ) , "primary" ) );
+    else if ( user.kind === "service" ) parts.push( Dom.badge( I18n.get( "manage.service" ) , "info" ) );
     if ( user.expired ) parts.push( Dom.badge( I18n.get( "manage.expired" ) , "danger" ) );
     else if ( user.disabled ) parts.push( Dom.badge( I18n.get( "manage.disabled" ) , "warning" ) );
     else parts.push( Dom.badge( I18n.get( "manage.active" ) , "success" ) );
@@ -210,11 +220,12 @@ const Manage = {
       on: { click: () => handler( user ) },
     } );
     if ( user.owner ) return Dom.el( "span" , { class: "small text-body-secondary" , text: I18n.get( "manage.owner_note" ) } );
+    if ( user.acts === false ) return Dom.el( "span" , { class: "small text-body-secondary" , text: I18n.get( "manage.admin_note" ) } );
     return Dom.rowActions( user.display_name , [
       item( "manage.link_button" , ( row ) => this.onLoginLink( row ) ),
       item( "manage.role_button" , ( row ) => this.onRole( row ) ),
       this.has( "account_expiry" ) ? item( "manage.expiry_button" , ( row ) => this.onExpiry( row ) ) : null,
-      this.has( "key_minting" ) ? item( "manage.keys_button" , ( row ) => this.showKeysFor( row ) ) : null,
+      this.has( "key_minting" ) && !this.mintingBlocked() ? item( "manage.keys_button" , ( row ) => this.showKeysFor( row ) ) : null,
       item( user.disabled ? "manage.enable_button" : "manage.disable_button" , ( row ) => this.onDisabled( row ) ),
       item( "manage.revoke_button" , ( row ) => this.onRevoke( row ) , true ),
       item( "manage.delete_button" , ( row ) => this.onDelete( row ) , true ),
@@ -373,7 +384,9 @@ const Manage = {
   fillKeyAccounts() {
     const select = Dom.get( "manage-key-account" );
     const picked = select.value;
-    const accounts = this.accounts.filter( ( user ) => !user.owner );
+    // Not the owner, not the portal's own account, never a service account,
+    // and not an admin the portal's key may not run.
+    const accounts = this.accounts.filter( ( user ) => !user.owner && !user.portal && user.kind !== "service" && user.acts !== false );
     Dom.swap( select , ...accounts.map( ( user ) => Dom.el( "option" , { text: user.display_name , attrs: { value: String( user.id ) } } ) ) );
     if ( accounts.some( ( user ) => String( user.id ) === picked ) ) select.value = picked;
     if ( select.value !== picked ) this.refreshKeys();

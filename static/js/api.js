@@ -182,6 +182,7 @@ const Api = {
   editProject( id , fields )     { return this.post( "/api/admin/projects/" + id + "/edit" , fields ); },
   setProjectKey( id , key )      { return this.post( "/api/admin/projects/" + id + "/key" , { admin_key: key } ); },
   checkProject( id )             { return this.post( "/api/admin/projects/" + id + "/check" ); },
+  rotateProjectKey( id )         { return this.post( "/api/admin/projects/" + id + "/rotate-key" ); },
   deleteProject( id )            { return this.post( "/api/admin/projects/" + id + "/delete" ); },
   restoreProject( id )           { return this.post( "/api/admin/projects/" + id + "/restore" ); },
   projectAccess( id , offset , params ) { return this.request( "/api/admin/projects/" + id + "/access" + this.query( { offset: offset , ...params } ) ); },
@@ -192,6 +193,14 @@ const Api = {
   },
   // options: { role , expires_in_days }, both optional.
   grantProject( id , userId , options ) { return this.post( "/api/admin/projects/" + id + "/grant/" + userId , options ); },
+  // People across the catalog (people.js). An account is { project_id, remote_user_id }.
+  people()                       { return this.request( "/api/admin/people" ); },
+  syncPeople()                   { return this.post( "/api/admin/people/sync" ); },
+  linkPeople( accounts , personId ) { return this.post( "/api/admin/people/link" , { accounts: accounts , person_id: personId || 0 } ); },
+  unlinkPerson( account )        { return this.post( "/api/admin/people/unlink" , account ); },
+  dismissPeople( a , b )         { return this.post( "/api/admin/people/dismiss" , { a: a , b: b } ); },
+  mergePeople( into , from )     { return this.post( "/api/admin/people/merge" , { into: into , from: from } ); },
+  editPerson( id , name , notes ) { return this.post( "/api/admin/people/" + id , { display_name: name , notes: notes } ); },
   remoteUsers( id , q , offset ) { return this.request( "/api/admin/projects/" + id + "/remote-users" + this.query( { q: q , offset: offset } ) ); },
   linkRemoteUser( id , userId , remoteUserId ) { return this.post( "/api/admin/projects/" + id + "/link/" + userId , { remote_user_id: remoteUserId } ); },
   removeProjectMember( id , userId , onProject ) {

@@ -258,6 +258,8 @@ func liveConfig( boot *Config , boot_file *File , file *File ) ( next *Config ) 
 	next.Backups.Enabled = file.Backups.Enabled
 	next.Backups.Interval = time.Duration( file.Backups.IntervalHours ) * time.Hour
 	next.Backups.Keep = file.Backups.Keep
+
+	next.Catalog = catalogConfig( file.Catalog )
 	return
 }
 

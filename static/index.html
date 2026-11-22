@@ -76,6 +76,7 @@
           <div id="sidebar-admin" class="sidebar-group" hidden>
             <h3 class="sidebar-heading" data-i18n="nav.admin_heading"></h3>
             <a class="nav-link" href="/admin/access" data-nav="access"><i class="bi bi-person-check" aria-hidden="true"></i><span data-i18n="nav.access"></span></a>
+            <a class="nav-link" href="/admin/people" data-nav="people"><i class="bi bi-person-vcard" aria-hidden="true"></i><span data-i18n="nav.people"></span></a>
             <a class="nav-link" href="/admin/users" data-nav="users"><i class="bi bi-people" aria-hidden="true"></i><span data-i18n="nav.users"></span></a>
             <a class="nav-link" href="/admin/invite-links" data-nav="invite-links"><i class="bi bi-link-45deg" aria-hidden="true"></i><span data-i18n="nav.invite_links"></span></a>
             <a class="nav-link" href="/admin/api-keys" data-nav="all-keys"><i class="bi bi-shield-lock" aria-hidden="true"></i><span data-i18n="nav.all_keys"></span></a>
@@ -772,6 +773,100 @@
                       <th scope="col" data-sort="health"><button type="button" class="th-sort" data-i18n="catalog.table_health"></button></th>
                       <th scope="col" data-sort="members"><button type="button" class="th-sort" data-i18n="catalog.table_members"></button></th>
                       <th scope="col" data-i18n="catalog.table_actions"></th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <!-- People across the catalog: one person, their accounts in every app. See people.js. -->
+        <section class="view view-full" data-view="people" data-path="/admin/people" id="people-panel" hidden>
+          <h2 class="view-title" data-i18n="people.heading"></h2>
+          <p class="view-description" data-i18n="people.description"></p>
+
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <button id="people-sync" type="button" class="btn btn-outline-primary">
+              <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i><span data-i18n="people.sync_button"></span>
+            </button>
+            <span id="people-synced" class="small text-body-secondary"></span>
+          </div>
+
+          <section class="card mb-3" id="people-suggestions-card">
+            <div class="card-body">
+              <h3 class="h5 card-title" data-i18n="people.suggestions_heading"></h3>
+              <p class="small text-body-secondary" data-i18n="people.suggestions_description"></p>
+              <div class="table-responsive">
+                <table id="people-suggestions-table" class="table align-middle mb-0" data-empty="people.suggestions_empty">
+                  <thead>
+                    <tr>
+                      <th scope="col" data-i18n="people.table_one"></th>
+                      <th scope="col" data-i18n="people.table_other"></th>
+                      <th scope="col" data-i18n="people.table_why"></th>
+                      <th scope="col" data-i18n="people.table_actions"></th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="card mb-3">
+            <div class="card-body">
+              <h3 class="h5 card-title" data-i18n="people.people_heading"></h3>
+              <div role="search">
+                <label for="people-search" class="visually-hidden" data-i18n="people.search_label"></label>
+                <input id="people-search" class="form-control" type="search" autocomplete="off"
+                       data-i18n-attr="placeholder:people.search_label" />
+              </div>
+              <div class="table-responsive mt-3">
+                <table id="people-table" class="table table-hover align-middle mb-0" data-empty="people.empty">
+                  <thead>
+                    <tr>
+                      <th scope="col" data-i18n="people.table_person"></th>
+                      <th scope="col" data-i18n="people.table_accounts"></th>
+                      <th scope="col" data-i18n="people.table_devices"></th>
+                      <th scope="col" data-i18n="people.table_actions"></th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="card mb-3">
+            <div class="card-body">
+              <h3 class="h5 card-title" data-i18n="people.unlinked_heading"></h3>
+              <p class="small text-body-secondary" data-i18n="people.unlinked_description"></p>
+              <div class="table-responsive">
+                <table id="people-unlinked-table" class="table table-hover align-middle mb-0" data-empty="people.unlinked_empty">
+                  <thead>
+                    <tr>
+                      <th scope="col" data-i18n="people.table_account"></th>
+                      <th scope="col" data-i18n="people.table_devices"></th>
+                      <th scope="col" data-i18n="people.table_actions"></th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-body">
+              <h3 class="h5 card-title" data-i18n="people.service_heading"></h3>
+              <p class="small text-body-secondary" data-i18n="people.service_description"></p>
+              <div class="table-responsive">
+                <table id="people-service-table" class="table align-middle mb-0" data-empty="people.service_empty">
+                  <thead>
+                    <tr>
+                      <th scope="col" data-i18n="people.table_account"></th>
+                      <th scope="col" data-i18n="people.table_what"></th>
                     </tr>
                   </thead>
                   <tbody></tbody>
@@ -1563,6 +1658,7 @@
   <script src="/js/invites.js"></script>
   <script src="/js/logs.js"></script>
   <script src="/js/jobs.js"></script>
+  <script src="/js/people.js"></script>
   <script src="/js/settings.js"></script>
   <script src="/js/themes_editor.js"></script>
   <script src="/js/fresh.js"></script>

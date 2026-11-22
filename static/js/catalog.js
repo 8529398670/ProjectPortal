@@ -121,7 +121,7 @@ const Catalog = {
       body.appendChild( Dom.el( "tr" , { children: [
         Dom.el( "td" , { children: [ name ] } ),
         Dom.el( "td" , { children: [ link ] } ),
-        Dom.el( "td" , { children: [ this.keyBadge( project ) , down ? null : note , this.contract( project ) ].filter( Boolean ) } ),
+        Dom.el( "td" , { children: [ this.keyBadge( project ) , down ? null : note , ...this.keyNotes( project ) , this.contract( project ) , this.skill( project ) ].filter( Boolean ) } ),
         Dom.el( "td" , { children: [ this.healthBadge( project ) , down ? note : null , Dom.el( "div" , { class: "small text-body-secondary" , children: [ Dom.when( project.checked_at , I18n.get( "catalog.never_checked" ) ) ] } ) ].filter( Boolean ) } ),
         Dom.el( "td" , { text: String( project.members ) } ),
         Dom.el( "td" , { children: [ this.actions( project ) ] } ),
@@ -133,11 +133,44 @@ const Catalog = {
   // which upgrade it is waiting on. Nothing before the first good check.
   contract( project ) {
     if ( project.key_status !== "ok" ) return null;
-    const all = [ "viewer_role" , "account_expiry" , "invite_links" , "key_minting" , "key_sign_in" ];
+    const all = [ "viewer_role" , "account_expiry" , "invite_links" , "key_minting" , "key_sign_in" , "service_accounts" , "key_grants" , "key_rotation" ];
     const missing = all.filter( ( capability ) => !( project.capabilities || [] ).includes( capability ) );
     const text = missing.length === 0 ? I18n.get( "catalog.contract_ok" )
       : I18n.get( "catalog.contract_behind" ).replace( "{missing}" , () => missing.map( ( capability ) => I18n.get( "manage.cap_" + capability ) ).join( ", " ) );
     return Dom.el( "div" , { class: "small " + ( missing.length ? "text-warning-emphasis" : "text-body-secondary" ) , text: text } );
+  },
+
+  // What the last check said about the key itself (contract 3): its warnings,
+  // and when it expires. Nothing before then.
+  keyNotes( project ) {
+    const key = project.key || {};
+    if ( project.key_status !== "ok" || !key.grants && !( key.warnings || [] ).length ) return [];
+    const date = ( value ) => new Date( value ).toLocaleDateString();
+    const notes = ( key.warnings || [] ).map( ( warning ) => {
+      const days = key.expires_at ? Math.max( 0 , Math.ceil( ( new Date( key.expires_at ) - Date.now() ) / 86400000 ) ) : 0;
+      const text = I18n.get( "catalog.warn_" + warning ).replace( "{days}" , () => String( days ) ).replace( "{date}" , () => key.expires_at ? date( key.expires_at ) : "" );
+      const tone = warning === "expired" || warning === "expires_soon" && days < 7 ? "text-danger-emphasis" : "text-warning-emphasis";
+      return Dom.el( "div" , { class: "small " + tone , children: [
+        Dom.el( "i" , { class: "bi bi-exclamation-triangle me-1" , attrs: { "aria-hidden": "true" } } ),
+        Dom.el( "span" , { text } ),
+      ] } );
+    } );
+    if ( key.grants && !( key.warnings || [] ).some( ( warning ) => warning.startsWith( "expire" ) ) ) {
+      let text = key.expires_at ? I18n.get( "catalog.key_expires" ).replace( "{date}" , () => date( key.expires_at ) ) : I18n.get( "catalog.key_never_expires" );
+      if ( key.rotated_at ) text += ", " + I18n.get( "catalog.rotated" ).replace( "{date}" , () => date( key.rotated_at ) );
+      notes.push( Dom.el( "div" , { class: "small text-body-secondary" , text } ) );
+    }
+    return notes;
+  },
+
+  // The template and commit an app came from, flagged when it is behind.
+  skill( project ) {
+    if ( !project.skill ) return null;
+    const text = I18n.get( "catalog.skill" ).replace( "{skill}" , () => project.skill ).replace( "{commit}" , () => ( project.skill_commit || "?" ).slice( 0 , 7 ) );
+    return Dom.el( "div" , { class: "small text-body-secondary d-flex flex-wrap align-items-center gap-1" , children: [
+      Dom.el( "span" , { class: "font-monospace" , text } ),
+      project.behind ? Dom.badge( I18n.get( "catalog.behind" ) , "warning" ) : null,
+    ].filter( Boolean ) } );
   },
 
   // GitHub, the board and its view-only link, as small icons under the address.
@@ -164,12 +197,21 @@ const Catalog = {
     } );
     return Dom.rowActions( project.name , [
       button( "catalog.check_button" , () => this.onCheck( project ) ),
+      project.may_rotate ? button( "catalog.rotate_button" , () => this.onRotate( project ) ) : null,
       button( "catalog.manage_button" , () => Manage.showFor( project.id ) ),
       button( "catalog.access_button" , () => Access.showFor( project.id ) ),
       button( "catalog.edit_button" , () => this.onEdit( project ) ),
       button( "catalog.key_button" , () => this.onKey( project ) ),
       button( "catalog.delete_button" , () => this.onDelete( project ) , true ),
     ] );
+  },
+
+  async onRotate( project ) {
+    try {
+      await Api.rotateProjectKey( project.id );
+      Dom.toast( I18n.get( "catalog.rotate_ok" ).replace( "{name}" , () => project.name ) , "ok" );
+    } catch ( error ) { App.showError( error.message ); }
+    await this.refresh();
   },
 
   async onCheck( project ) {

@@ -29,63 +29,34 @@ If an app falls out of sync (Check now shows a refused key, or Join/Open answers
 424, which the portal used to send as 502), check it against this table first. The usual fix is the `webserver-upgrade`
 skill run in that app.
 
-### Portal contract v2 (2026-11-20): exact wire format
-Added to both webserver skills so the portal's **Manage project** screen can run
-an app from outside. The portal turns each part on only when `/api/me` lists its
-capability, so an app that is behind keeps working with v1. Field names and error
-codes below are binding: the Go and Python templates and `server/remote/remote.go`
-must match them exactly. Every route answers `{"error": "..."}` on refusal, as today.
-An "admin key" below means an admin-role API key, or an admin session.
+### The portal contract: the skills are the source of truth (v3, 2026-11-22)
+The binding wire format now lives in the webserver skills, the same text in
+both: the "Portal contract" section of `~/.claude/skills/go-webserver/SKILL.md`
+and `~/.claude/skills/python-webserver/SKILL.md`. It covers the routes,
+`/api/me`'s fields, the capabilities, the refusal codes, service accounts and
+rotation. `server/remote/` is written against that section. Change the
+contract there, in both skills, and not here.
 
-**Discovery**: `GET /api/me` adds `"contract": 2` and `"capabilities": [...]`, drawn from:
-`viewer_role`, `account_expiry`, `key_minting`, `invite_links` (only while invite links are
-switched on), `key_sign_in` (`POST /api/account/login-link` takes a key with `may_sign_in`).
+v3 in brief:
+- `"contract": 3`. ProjectPortal works through a service account the app's
+  owner connects (Connect on the owner's API keys screen, or
+  `manage portal-connect`).
+- `/api/me` adds `key` (grants and expiry), `owner`, `kind`, `skill` and
+  `skill_commit`.
+- Every 4xx carries a `code`.
+- `POST /api/keys/self/rotate`.
+- Admin actions and webhooks name the actor.
+- Check a live app with `scripts/contract_check.sh <url>`, the key on stdin.
 
-**Viewer role**: `role` everywhere also takes `"viewer"`, ranked viewer < user < admin.
-A viewer's session or key may send only GET/HEAD, plus `POST /api/logout`, its own
-`/api/account/sessions*` revokes and `POST /api/account/login-link/cancel`. Anything else
-answers **403 `{"error":"view_only"}`**. `/api/me` reports `"role": "viewer"`.
+The v2 parts (viewer role, account expiry, invite-link roles, key minting) are
+unchanged, and the skills' section spells them out too.
 
-**Account expiry** (capability `account_expiry`):
-| Call | Body | Answer |
-|---|---|---|
-| `POST /api/admin/users` (existing) | adds optional `"account_expires_at"`: RFC 3339 time, or omitted for never. (`expires_in_minutes` stays the *login link's* expiry.) | as today: `user_id`, `login_path` |
-| `POST /api/admin/users/{user_id}/expiry` | `{"expires_at": "<RFC 3339>" or null}` (null = never) | `{"ok": true, "expires_at": ... or null}` |
-| `GET /api/admin/users` (existing) | | each user adds `"expires_at"` (RFC 3339 or null) and `"expired"` (bool) |
-
-When it passes, the account counts as disabled. Sign-in, its sessions and its keys stop
-working, and housekeeping disables it and revokes its access. An admin may expire anyone
-but the owner.
-
-**Role change**: `POST /api/admin/users/{user_id}/role` `{"role": "admin"|"user"|"viewer"}`
-(existing, admin key OK), now also takes `viewer`.
-
-**Invite links** (capability `invite_links`): existing routes. Create adds optional
-`"role": "user"|"viewer"` (default `user`). List rows add `"role"`. The portal uses
-`GET /api/admin/invite-links`, `POST /api/admin/invite-links`
-(`{label, max_uses, days, role}` → `{..., "join_path"}`), and
-`POST /api/admin/invite-links/{link_id}/revoke`.
-
-**Key minting** (capability `key_minting`). The calling key needs `may_mint_keys`, which
-only the app's owner can switch on, from a browser session, on an admin-role key
-(`POST /api/keys/{key_id}/mint-keys` `{"may_mint_keys": bool}`, session only). Otherwise
-it gets **403 `{"error":"key_minting_off"}`**.
-| Call | Body | Answer |
-|---|---|---|
-| `POST /api/admin/users/{user_id}/keys` | `{"name": 1-80, "role": "admin"|"user"|"viewer", "expires_in_days": 1-365}` (required, never 0) | the app's `NewAPIKey` shape: key row + `"credential"`, shown once |
-| `GET /api/admin/users/{user_id}/keys` | | `{"keys": [key rows]}`; rows add `"minted_by_key"` (id or empty) |
-| `POST /api/admin/keys/{key_id}/revoke` | | `{"ok": true}` |
-
-Rules for minted keys:
-- The role is capped at the account's own role.
-- A minted key can never get `may_mint_keys` or `may_sign_in`.
-- Revoking or deleting a key revokes every key it minted, down the whole chain, and voids
-  the links it made (as `VoidLinksMintedByKeyTx` already does for links).
-- The owner's keys cannot be minted or revoked this way.
-
-Disable, revoke access and delete are the existing
-`POST /api/admin/users/{user_id}/disabled` `{"disabled": bool}`, `/revoke-access` and
-`/delete` routes, which already take an admin key.
+### 2026-11-22, still to do in the skills and then each app: `admin_sessions`
+The portal's People screen (phase 3b) shows each account's devices. That needs
+`GET /api/admin/users/{id}/sessions` in both webserver templates, capability
+`admin_sessions`, and then a small `webserver-upgrade` in each app. Until an app
+has it, People shows "Not listed" for that app's devices and suggests matches
+by name only. The portal side is done.
 
 ### Known gap: apps that cannot make a sign-in link for a key
 Attaching your own key only checks `GET /api/me`, so the card says "Signs you in

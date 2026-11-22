@@ -270,6 +270,16 @@ backups:
   interval_hours: 24               # [live]
   keep: 7                          # [live]
 
+# The apps in the catalog, as the portal runs them. [live]
+catalog:
+  # The webserver skills' commit (git -C ~/.claude/skills rev-parse --short
+  # HEAD). A Catalog row whose app says it was built from another commit
+  # shows "behind". Empty: never.
+  template_commit: ""              # [live]
+  # Rotate the portal's admin key on each app that can (key_rotation) once
+  # it is this many days old. The key's expiry does not change. 0: never.
+  rotate_key_days: 30              # [live]
+
 
 
 

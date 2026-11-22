@@ -195,7 +195,8 @@ const Access = {
       App.showError( error.message );
       return;
     }
-    const options = users.filter( ( user ) => !user.owner ).map( ( user ) => ( {
+    // Never the owner, the portal's own account or another service account: nobody signs into those.
+    const options = users.filter( ( user ) => !user.owner && !user.portal && user.kind !== "service" ).map( ( user ) => ( {
       value: String( user.id ),
       label: user.display_name + " (" + user.role + ( user.disabled ? ", " + I18n.get( "access.disabled" ) : "" ) + ")",
     } ) );

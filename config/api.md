@@ -17,6 +17,7 @@ This file is generated: do not edit it. Change the docs next to the handlers and
 - [Monitoring](#monitoring)
 - [Catalog](#catalog)
 - [Manage project](#manage-project)
+- [People](#people)
 - [Projects](#projects)
 - [Schemas](#schemas)
 
@@ -2895,6 +2896,7 @@ Refused: this server keeps no sessions
 | POST | [`/api/admin/projects/{project_id}/members/{user_id}/remove`](#post-apiadminprojectsproject_idmembersuser_idremove) | Take someone off a project here | browser session or API key, admins |
 | GET | [`/api/admin/projects/{project_id}/remote-users`](#get-apiadminprojectsproject_idremote-users) | A project's own accounts | browser session or API key, admins |
 | POST | [`/api/admin/projects/{project_id}/restore`](#post-apiadminprojectsproject_idrestore) | Undo deleting a project | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/rotate-key`](#post-apiadminprojectsproject_idrotate-key) | Rotate a project's key | browser session or API key, admins |
 | POST | [`/api/bulk/admin/projects/access`](#post-apibulkadminprojectsaccess) | Let someone use a project, or not, for many at once | browser session or API key, admins |
 
 ### GET /api/admin/projects
@@ -3333,6 +3335,36 @@ Put back a project deleted in the last 10 minutes.
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
 | `ok` | boolean | yes |  |  |
+
+### POST /api/admin/projects/{project_id}/rotate-key
+
+Rotate a project's key
+
+Swap the portal's admin key on the project for a new secret, now. The key keeps its grants and its expiry there, and what it made keeps working. Needs an app with key rotation; the key-rotation job also does this every catalog.rotate_key_days.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_rotate_project_key`](mcp.md#admin_rotate_project_key) |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `project` | [`CatalogProject`](#catalogproject) | yes |  |  |
 
 ### POST /api/bulk/admin/projects/access
 
@@ -3851,6 +3883,221 @@ For every project they are on, disable their account there (on_project disable) 
 | `results[].ok` | boolean | yes |  |  |
 | `results[].project_id` | integer | yes |  |  |
 
+## People
+
+| Method | Path | Summary | Who may call |
+|---|---|---|---|
+| GET | [`/api/admin/people`](#get-apiadminpeople) | People across the catalog | browser session or API key, admins |
+| POST | [`/api/admin/people/dismiss`](#post-apiadminpeopledismiss) | Dismiss a suggested match | browser session or API key, admins |
+| POST | [`/api/admin/people/link`](#post-apiadminpeoplelink) | Link accounts to one person | browser session or API key, admins |
+| POST | [`/api/admin/people/merge`](#post-apiadminpeoplemerge) | Merge two people | browser session or API key, admins |
+| POST | [`/api/admin/people/sync`](#post-apiadminpeoplesync) | Refresh people now | browser session or API key, admins |
+| POST | [`/api/admin/people/unlink`](#post-apiadminpeopleunlink) | Take an account off its person | browser session or API key, admins |
+| POST | [`/api/admin/people/{person_id}`](#post-apiadminpeopleperson_id) | Rename a person | browser session or API key, admins |
+
+### GET /api/admin/people
+
+People across the catalog
+
+Every person and their accounts in each app (project 0 is this portal), the accounts nobody has placed, service accounts, and suggested matches with why. From the last people-sync.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_list_people`](mcp.md#admin_list_people) |
+| Errors | 401, 403, 429, 503 |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `people` | array of [`Person`](#person) | yes |  |  |
+| `service` | array of [`PersonAccount`](#personaccount) | yes |  | Service accounts (the portal's own among them) and hand-made portal accounts: never a person's. |
+| `suggestions` | array of [`PeopleSuggestion`](#peoplesuggestion) | yes |  |  |
+| `synced_at` | string (date-time) or null | yes |  | When the oldest account was last seen; null before the first sync. |
+| `unlinked` | array of [`PersonAccount`](#personaccount) | yes |  | Accounts of people nobody has placed yet. |
+
+### POST /api/admin/people/dismiss
+
+Dismiss a suggested match
+
+The accounts in a are not the person of those in b: that match is never suggested again.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_dismiss_people`](mcp.md#admin_dismiss_people) |
+| Errors | 400, 401, 403, 429, 503 |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `a` | array of object | yes |  |  |
+| `a[].project_id` | integer | yes | at least 0 | The project, or 0 for this portal. |
+| `a[].remote_user_id` | integer | yes | at least 1 | The account's id there. |
+| `b` | array of object | yes |  |  |
+| `b[].project_id` | integer | yes | at least 0 | The project, or 0 for this portal. |
+| `b[].remote_user_id` | integer | yes | at least 1 | The account's id there. |
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `ok` | boolean | yes |  |  |
+
+### POST /api/admin/people/link
+
+Link accounts to one person
+
+Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_link_people`](mcp.md#admin_link_people) |
+| Errors | 400, 401, 403, 404, 429, 503 |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `accounts` | array of object | yes |  | The accounts that are one person. |
+| `accounts[].project_id` | integer | yes | at least 0 | The project, or 0 for this portal. |
+| `accounts[].remote_user_id` | integer | yes | at least 1 | The account's id there. |
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `person_id` | integer | no |  | Put them under this person; 0 to use the person one of them has, or a new one. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `person` | object or null | yes |  |  |
+| `person.created_at` | string (date-time) | yes |  |  |
+| `person.display_name` | string | yes |  |  |
+| `person.id` | integer | yes |  |  |
+| `person.notes` | string | no |  |  |
+| `person.updated_at` | string (date-time) | yes |  |  |
+
+### POST /api/admin/people/merge
+
+Merge two people
+
+Every account of from goes to into, with its notes, and from is deleted.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_merge_people`](mcp.md#admin_merge_people) |
+| Errors | 400, 401, 403, 404, 429, 503 |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `from` | integer | yes | at least 1 | The person folded into them, then gone. |
+| `into` | integer | yes | at least 1 | The person who stays. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `person` | object or null | yes |  |  |
+| `person.created_at` | string (date-time) | yes |  |  |
+| `person.display_name` | string | yes |  |  |
+| `person.id` | integer | yes |  |  |
+| `person.notes` | string | no |  |  |
+| `person.updated_at` | string (date-time) | yes |  |  |
+
+### POST /api/admin/people/sync
+
+Refresh people now
+
+Start the people-sync job now: every app's accounts and devices, and this portal's. It runs in the background; list people again for the result. It also runs every hour.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_sync_people`](mcp.md#admin_sync_people) |
+| Errors | 400, 401, 403, 409, 429, 503 |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+
+**Reply 202**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `ok` | boolean | yes |  |  |
+
+### POST /api/admin/people/unlink
+
+Take an account off its person
+
+The account no longer counts as that person's, and is not suggested for them again.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_unlink_person`](mcp.md#admin_unlink_person) |
+| Errors | 400, 401, 403, 404, 429, 503 |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `project_id` | integer | yes | at least 0 | The project, or 0 for this portal. |
+| `remote_user_id` | integer | yes | at least 1 | The account's id there. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `ok` | boolean | yes |  |  |
+
+### POST /api/admin/people/{person_id}
+
+Rename a person
+
+The name and notes the portal keeps for a person. Their accounts keep their own names.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_edit_person`](mcp.md#admin_edit_person) |
+| Errors | 400, 401, 403, 404, 429, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `person_id` | path | integer | yes | at least 1 |  |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `display_name` | string | yes | 1 to 80 characters |  |
+| `notes` | string | yes | at most 2000 characters |  |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `person` | object or null | yes |  |  |
+| `person.created_at` | string (date-time) | yes |  |  |
+| `person.display_name` | string | yes |  |  |
+| `person.id` | integer | yes |  |  |
+| `person.notes` | string | no |  |  |
+| `person.updated_at` | string (date-time) | yes |  |  |
+
 ## Projects
 
 | Method | Path | Summary | Who may call |
@@ -4189,9 +4436,10 @@ The shapes the routes above refer to by name.
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
 | `base_url` | string | yes |  |  |
+| `behind` | boolean | yes |  | skill_commit differs from the template commit set in Settings. |
 | `board_share_url` | string | yes |  | A view-only TodoBoard share link, which everyone who may see the project gets. |
 | `board_url` | string | yes |  | Its TodoBoard board, for admins. |
-| `capabilities` | array of string | yes |  | What Manage project may do there: viewer_role, account_expiry, key_minting, invite_links, key_sign_in. |
+| `capabilities` | array of string | yes |  | What Manage project may do there: viewer_role, account_expiry, key_minting, invite_links, key_sign_in, and on contract 3 service_accounts, key_grants, error_codes, key_rotation, admin_sessions. |
 | `check_note` | string | yes |  |  |
 | `checked_at` | string (date-time) or null | yes |  |  |
 | `color` | string | yes |  |  |
@@ -4203,12 +4451,26 @@ The shapes the routes above refer to by name.
 | `health` | string | yes |  | up, down, or empty before the first check. |
 | `icon` | string | yes |  |  |
 | `id` | integer | yes |  |  |
+| `key` | object | yes |  | Who the portal's admin key is there and what it may do, from the last check (contract 3). |
+| `key.account_id` | integer | yes |  | The account the key belongs to there: the portal's own. |
+| `key.expires_at` | string (date-time) or null | yes |  | When the key stops working there; null for never or unknown. |
+| `key.grants` | boolean | yes |  | The app reported what this key may do. |
+| `key.kind` | string | yes |  | person or service; empty before contract 3. |
+| `key.may_mint_keys` | boolean | yes |  |  |
+| `key.may_sign_in` | boolean | yes |  |  |
+| `key.name` | string | yes |  |  |
+| `key.owner` | boolean | yes |  | The key is the app owner's own: it works, but should be a Connect key. |
+| `key.rotated_at` | string (date-time) or null | yes |  | When the portal last stored or rotated it. |
+| `key.warnings` | array of string | yes |  | owner_key, not_service, cannot_mint, expires_soon, expired. |
 | `key_set` | boolean | yes |  | Whether the portal holds an admin key for it. |
 | `key_status` | string | yes |  | ok, invalid, not_admin or missing, from the last check. |
 | `listed` | boolean | yes |  |  |
+| `may_rotate` | boolean | yes |  | Rotate now works: a working key on an app with key rotation. |
 | `members` | integer | yes |  |  |
 | `name` | string | yes |  |  |
 | `position` | integer | yes |  |  |
+| `skill` | string | yes |  | The template the app came from: go-webserver or python-webserver. Empty when it does not say. |
+| `skill_commit` | string | yes |  | The template commit the app was last built from. |
 | `version` | string | yes |  | The app's version, from its last check. |
 
 ### Error
@@ -4406,6 +4668,50 @@ One of these:
 | `role` | string | yes | one of `admin`, `user`, `viewer` |  |
 | `user_id` | integer | yes |  |  |
 
+### PeopleSuggestion
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `a` | array of [`PersonAccount`](#personaccount) | yes |  | One side: a person's accounts, or one account nobody has placed. |
+| `a_person_id` | integer | no |  |  |
+| `b` | array of [`PersonAccount`](#personaccount) | yes |  |  |
+| `b_person_id` | integer | no |  |  |
+| `reasons` | array of string | yes |  | same_name, shared_ip, same_agent, close_in. |
+| `score` | integer | yes |  |  |
+
+### Person
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `accounts` | array of [`PersonAccount`](#personaccount) | yes |  |  |
+| `display_name` | string | yes |  |  |
+| `id` | integer | yes |  |  |
+| `notes` | string | yes |  |  |
+
+### PersonAccount
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `devices` | array of object | yes |  | Its signed-in devices, when devices_listed. |
+| `devices[].created_at` | string (date-time) | yes |  |  |
+| `devices[].ip` | string | no |  |  |
+| `devices[].label` | string | no |  |  |
+| `devices[].last_seen_at` | string (date-time) or null | no |  |  |
+| `devices[].user_agent` | string | no |  |  |
+| `devices_listed` | boolean | yes |  | The app listed this account's devices (it has admin_sessions and the portal's key may read them). |
+| `disabled` | boolean | yes |  |  |
+| `display_name` | string | yes |  |  |
+| `expired` | boolean | yes |  |  |
+| `hand_made_portal` | boolean | yes |  | A person's account named like the portal's: one made by hand for the portal before Connect. Delete it in that app. |
+| `kind` | string | yes |  | person or service; empty from an app before contract 3. |
+| `owner` | boolean | yes |  |  |
+| `portal` | boolean | yes |  | The account the portal's own key belongs to there. |
+| `project_id` | integer | yes |  | The project, or 0 for this portal's own accounts. |
+| `project_name` | string | yes |  |  |
+| `remote_user_id` | integer | yes |  | The account's id there (a user id here for project 0). |
+| `role` | string | yes |  |  |
+| `synced_at` | string (date-time) | yes |  |  |
+
 ### PortalAccount
 
 | Field | Type | Required | Limits | Description |
@@ -4469,12 +4775,15 @@ One of these:
 
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
+| `acts` | boolean | yes |  | Whether the portal's key may act on this account there: never the owner, and another admin only with the owner's key. |
 | `disabled` | boolean | yes |  |  |
 | `display_name` | string | yes |  |  |
 | `expired` | boolean | yes |  |  |
 | `expires_at` | string (date-time) or null | yes |  | When it stops working there, or null for never (or an app without expiring accounts). |
 | `id` | integer | yes |  |  |
+| `kind` | string | yes |  | person or service (the app's own word; empty before contract 3). |
 | `owner` | boolean | yes |  |  |
+| `portal` | boolean | yes |  | The account the portal's own admin key belongs to there. |
 | `portal_name` | string | no |  |  |
 | `portal_user_id` | integer | no |  | Who it belongs to here, when someone is on the project with it. |
 | `role` | string | yes |  |  |

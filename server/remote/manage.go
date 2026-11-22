@@ -20,6 +20,12 @@ const (
 	CapKeyMinting    = "key_minting"
 	CapInviteLinks   = "invite_links"
 	CapKeySignIn     = "key_sign_in"
+	// Contract v3.
+	CapServiceAccounts = "service_accounts"
+	CapKeyGrants       = "key_grants"
+	CapErrorCodes      = "error_codes"
+	CapKeyRotation     = "key_rotation"
+	CapAdminSessions   = "admin_sessions"
 )
 
 // Has is whether capabilities lists capability.
@@ -169,5 +175,38 @@ func MintKey( ctx context.Context , base_url string , admin_key string , remote_
 // RevokeKey stops a key there working, and every key it minted.
 func RevokeKey( ctx context.Context , base_url string , admin_key string , key_id string ) ( err error ) {
 	err = call( ctx , base_url , admin_key , http.MethodPost , "/api/admin/keys/" + net_url.PathEscape( key_id ) + "/revoke" , map[string]any{} , nil )
+	return
+}
+
+// RotateSelf swaps the calling key's secret for a new one (key_rotation) and
+// answers it. The old secret stops working at once; nothing else about the
+// key changes, its expiry included.
+func RotateSelf( ctx context.Context , base_url string , key string ) ( credential string , err error ) {
+	reply := struct{ Credential string `json:"credential"` }{}
+	if err = call( ctx , base_url , key , http.MethodPost , "/api/keys/self/rotate" , nil , &reply ); err != nil { return }
+	if reply.Credential == "" {
+		err = &Error{ Status: http.StatusOK , Message: "the project's reply had no new key in it" }
+		return
+	}
+	credential = reply.Credential
+	return
+}
+
+// Session is one signed-in device of an account (admin_sessions).
+type Session struct {
+	ID         string     `json:"id"`
+	CreatedAt  time.Time  `json:"created_at"`
+	LastSeenAt *time.Time `json:"last_seen_at"`
+	IP         string     `json:"ip"`
+	UserAgent  string     `json:"user_agent"`
+	Label      string     `json:"label"`
+}
+
+// UserSessions is an account's signed-in devices there.
+func UserSessions( ctx context.Context , base_url string , admin_key string , remote_user_id uint64 ) ( sessions []Session , err error ) {
+	reply := struct{ Sessions []Session `json:"sessions"` }{}
+	if err = call( ctx , base_url , admin_key , http.MethodGet , userPath( remote_user_id , "sessions" ) , nil , &reply ); err != nil { return }
+	sessions = reply.Sessions
+	if sessions == nil { sessions = []Session{} }
 	return
 }

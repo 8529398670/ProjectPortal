@@ -631,6 +631,114 @@
       "annotations": {
         "destructiveHint": false,
         "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Dismiss a suggested match (admin)"
+      },
+      "description": "The accounts in a are not the person of those in b: that match is never suggested again.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "a": {
+            "items": {
+              "properties": {
+                "project_id": {
+                  "description": "The project, or 0 for this portal.",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "remote_user_id": {
+                  "description": "The account's id there.",
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "project_id",
+                "remote_user_id"
+              ],
+              "type": "object"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "type": "array"
+          },
+          "b": {
+            "items": {
+              "properties": {
+                "project_id": {
+                  "description": "The project, or 0 for this portal.",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "remote_user_id": {
+                  "description": "The account's id there.",
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "project_id",
+                "remote_user_id"
+              ],
+              "type": "object"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "a",
+          "b"
+        ],
+        "type": "object"
+      },
+      "name": "admin_dismiss_people",
+      "route": "POST /api/admin/people/dismiss",
+      "title": "Dismiss a suggested match (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Rename a person (admin)"
+      },
+      "description": "The name and notes the portal keeps for a person. Their accounts keep their own names.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "notes": {
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "person_id": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "display_name",
+          "notes",
+          "person_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_edit_person",
+      "route": "POST /api/admin/people/{person_id}",
+      "title": "Rename a person (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
         "readOnlyHint": true,
         "title": "Default themes (admin)"
       },
@@ -690,6 +798,57 @@
       "name": "admin_grant_project",
       "route": "POST /api/admin/projects/{project_id}/grant/{user_id}",
       "title": "Put someone on a project (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Link accounts to one person (admin)"
+      },
+      "description": "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "accounts": {
+            "description": "The accounts that are one person.",
+            "items": {
+              "properties": {
+                "project_id": {
+                  "description": "The project, or 0 for this portal.",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "remote_user_id": {
+                  "description": "The account's id there.",
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "project_id",
+                "remote_user_id"
+              ],
+              "type": "object"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "type": "array"
+          },
+          "person_id": {
+            "description": "Put them under this person; 0 to use the person one of them has, or a new one.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "accounts"
+        ],
+        "type": "object"
+      },
+      "name": "admin_link_people",
+      "route": "POST /api/admin/people/link",
+      "title": "Link accounts to one person (admin)"
     },
     {
       "adminOnly": true,
@@ -835,6 +994,24 @@
       "name": "admin_list_invite_links",
       "route": "GET /api/admin/invite-links",
       "title": "List invite links (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "People across the catalog (admin)"
+      },
+      "description": "Every person and their accounts in each app (project 0 is this portal), the accounts nobody has placed, service accounts, and suggested matches with why. From the last people-sync.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "admin_list_people",
+      "route": "GET /api/admin/people",
+      "title": "People across the catalog (admin)"
     },
     {
       "adminOnly": true,
@@ -1023,6 +1200,39 @@
       "name": "admin_list_users",
       "route": "GET /api/admin/users",
       "title": "List users (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Merge two people (admin)"
+      },
+      "description": "Every account of from goes to into, with its notes, and from is deleted.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "The person folded into them, then gone.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "into": {
+            "description": "The person who stays.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "from",
+          "into"
+        ],
+        "type": "object"
+      },
+      "name": "admin_merge_people",
+      "route": "POST /api/admin/people/merge",
+      "title": "Merge two people (admin)"
     },
     {
       "adminOnly": true,
@@ -1831,6 +2041,33 @@
         "destructiveHint": false,
         "openWorldHint": false,
         "readOnlyHint": false,
+        "title": "Rotate a project's key (admin)"
+      },
+      "description": "Swap the portal's admin key on the project for a new secret, now. The key keeps its grants and its expiry there, and what it made keeps working. Needs an app with key rotation; the key-rotation job also does this every catalog.rotate_key_days.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_rotate_project_key",
+      "route": "POST /api/admin/projects/{project_id}/rotate-key",
+      "title": "Rotate a project's key (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
         "title": "Change an invite link's places and expiry (admin)"
       },
       "description": "Set how many people the link may take in (never fewer than have joined) and, when days is given, a new expiry counted from now. The link then counts as this key's: revoking the key switches it off.",
@@ -2619,6 +2856,57 @@
       "name": "admin_switch_on_invite_link_bulk",
       "route": "POST /api/bulk/admin/invite-links/switch-on",
       "title": "Switch an invite link back on, for many at once (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Refresh people now (admin)"
+      },
+      "description": "Start the people-sync job now: every app's accounts and devices, and this portal's. It runs in the background; list people again for the result. It also runs every hour.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "admin_sync_people",
+      "route": "POST /api/admin/people/sync",
+      "title": "Refresh people now (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Take an account off its person (admin)"
+      },
+      "description": "The account no longer counts as that person's, and is not suggested for them again.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "description": "The project, or 0 for this portal.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "remote_user_id": {
+            "description": "The account's id there.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "remote_user_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_unlink_person",
+      "route": "POST /api/admin/people/unlink",
+      "title": "Take an account off its person (admin)"
     },
     {
       "adminOnly": false,

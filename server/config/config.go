@@ -106,6 +106,7 @@ type File struct {
 	Auth   AuthSection   `yaml:"auth"`
 	Logs   LogsSection   `yaml:"logs"`
 	Backups BackupsSection `yaml:"backups"`
+	Catalog CatalogSection `yaml:"catalog"`
 	Docker DockerSection `yaml:"docker"`
 	Build  BuildSection  `yaml:"build"`
 }
@@ -172,6 +173,11 @@ type BackupsSection struct {
 	Enabled       bool `yaml:"enabled"`
 	IntervalHours int  `yaml:"interval_hours"`
 	Keep          int  `yaml:"keep"`
+}
+
+type CatalogSection struct {
+	TemplateCommit string `yaml:"template_commit"`
+	RotateKeyDays  int    `yaml:"rotate_key_days"`
 }
 
 
@@ -373,6 +379,9 @@ type Config struct {
 	// Backups is the scheduled backup's settings; see server/backup.
 	Backups BackupsConfig
 
+	// Catalog is how the portal runs the apps in its catalog.
+	Catalog CatalogConfig
+
 	// file and raw are what this was built from, for NewHolder.
 	file *File
 	raw  []byte
@@ -418,6 +427,13 @@ type BackupsConfig struct {
 	Dir      string
 	Interval time.Duration
 	Keep     int
+}
+
+// CatalogConfig is config.yaml's catalog section, resolved. RotateKeyAfter
+// is 0 for never.
+type CatalogConfig struct {
+	TemplateCommit string
+	RotateKeyAfter time.Duration
 }
 
 // layout is what the container image pins, regardless of config.yaml. See
@@ -696,6 +712,10 @@ func ( file *File ) Validate() ( err error ) {
 	backups := file.Backups
 	check( backups.IntervalHours >= 1 , "backups.interval_hours must be at least 1, got %d" , backups.IntervalHours )
 	check( backups.Keep >= 1 , "backups.keep must be at least 1, got %d" , backups.Keep )
+
+	catalog := file.Catalog
+	check( catalog.RotateKeyDays >= 0 && catalog.RotateKeyDays <= 365 , "catalog.rotate_key_days must be 0 (never) to 365, got %d" , catalog.RotateKeyDays )
+	check( shortSHA.MatchString( catalog.TemplateCommit ) , "catalog.template_commit must be empty or a git commit (4-40 hex characters), got %q" , catalog.TemplateCommit )
 
 	docker := file.Docker
 	check( imagePattern.MatchString( docker.Image ) , "docker.image %q is not a valid lowercase image name" , docker.Image )
@@ -1100,6 +1120,8 @@ func build( file *File , path string , paths Paths , secret_key string ) ( cfg *
 			Keep:     file.Backups.Keep,
 		},
 
+		Catalog: catalogConfig( file.Catalog ),
+
 		file: file,
 	}
 	return
@@ -1204,5 +1226,13 @@ func seconds( value int ) ( result time.Duration ) {
 
 func ( cfg *Config ) ListenAddress() ( result string ) {
 	result = fmt.Sprintf( "%s:%d" , cfg.Host , cfg.Port )
+	return
+}
+
+var shortSHA = regexp.MustCompile( `^([0-9a-fA-F]{4,40})?$` )
+
+func catalogConfig( section CatalogSection ) ( resolved CatalogConfig ) {
+	resolved.TemplateCommit = strings.TrimSpace( section.TemplateCommit )
+	resolved.RotateKeyAfter = time.Duration( section.RotateKeyDays ) * 24 * time.Hour
 	return
 }

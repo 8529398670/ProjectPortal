@@ -36,6 +36,7 @@ var capabilityNames = map[string]string{
 	remote.CapKeyMinting:    "API keys made from the portal",
 	remote.CapInviteLinks:   "invite links",
 	remote.CapKeySignIn:     "signing in with your own key",
+	remote.CapKeyRotation:   "key rotation",
 }
 
 // managedProject is a project an admin is about to act on, with its admin
@@ -60,6 +61,21 @@ func ( handlers *Handlers ) needs( project *models.Project , capability string )
 	}
 	refused = refuse( fiber.StatusConflict , project.Name + " does not support " + capabilityNames[ capability ] +
 		" yet: run the webserver-upgrade skill in it (portal contract v2)" )
+	return
+}
+
+// needsMinting is needs( key_minting ), and on an app that says what its
+// keys may do (key_grants), that the portal's key may make keys.
+func ( handlers *Handlers ) needsMinting( project *models.Project ) ( refused error ) {
+	if refused = handlers.needs( project , remote.CapKeyMinting ); refused != nil { return }
+	if mintingBlocked( project ) {
+		refused = refuse( fiber.StatusConflict , project.Name + ": the portal's key there may not make keys. In that app, Connect ProjectPortal again from the owner's API keys screen, and put the new key on the project here" )
+	}
+	return
+}
+
+func mintingBlocked( project *models.Project ) ( blocked bool ) {
+	blocked = remote.Has( project.Capabilities , remote.CapKeyGrants ) && project.KeyFacts.Grants && project.KeyFacts.MayMintKeys == false
 	return
 }
 
@@ -417,7 +433,7 @@ type remoteKeysReply struct {
 func ( handlers *Handlers ) remoteKeys( c fiber.Ctx , in *remoteUserPath ) ( reply *remoteKeysReply , err error ) {
 	project , key , refused := handlers.managedProject( in.ProjectID )
 	if refused != nil { return nil , refused }
-	if refused = handlers.needs( project , remote.CapKeyMinting ); refused != nil { return nil , refused }
+	if refused = handlers.needsMinting( project ); refused != nil { return nil , refused }
 	ctx , cancel := remoteContext()
 	defer cancel()
 	keys , remote_err := remote.ListUserKeys( ctx , project.BaseURL , key , in.RemoteUserID )
@@ -444,7 +460,7 @@ type mintRemoteKeyRequest struct {
 func ( handlers *Handlers ) mintRemoteKey( c fiber.Ctx , in *mintRemoteKeyRequest ) ( reply *remote.MintedKey , err error ) {
 	project , key , refused := handlers.managedProject( in.ProjectID )
 	if refused != nil { return nil , refused }
-	if refused = handlers.needs( project , remote.CapKeyMinting ); refused != nil { return nil , refused }
+	if refused = handlers.needsMinting( project ); refused != nil { return nil , refused }
 	if refused = handlers.roleAllowed( project , in.Role ); refused != nil { return nil , refused }
 	ctx , cancel := remoteContext()
 	defer cancel()
@@ -475,7 +491,7 @@ type remoteKeyPath struct {
 func ( handlers *Handlers ) revokeRemoteKey( c fiber.Ctx , in *remoteKeyPath ) ( reply *okReply , err error ) {
 	project , key , refused := handlers.managedProject( in.ProjectID )
 	if refused != nil { return nil , refused }
-	if refused = handlers.needs( project , remote.CapKeyMinting ); refused != nil { return nil , refused }
+	if refused = handlers.needsMinting( project ); refused != nil { return nil , refused }
 	ctx , cancel := remoteContext()
 	defer cancel()
 	if remote_err := remote.RevokeKey( ctx , project.BaseURL , key , in.KeyID ); remote_err != nil {

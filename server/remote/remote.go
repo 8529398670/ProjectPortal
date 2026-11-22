@@ -46,6 +46,10 @@ const (
 type Error struct {
 	Status  int
 	Message string
+	// Code is the app's machine-readable refusal (contract v3, error_codes),
+	// empty on an older app; Field names the one bad field of an "invalid".
+	Code  string
+	Field string
 }
 
 func ( remote_err *Error ) Error() ( result string ) {
@@ -55,7 +59,31 @@ func ( remote_err *Error ) Error() ( result string ) {
 
 // Unauthorized is a key the project no longer takes.
 func ( remote_err *Error ) Unauthorized() ( result bool ) {
-	result = remote_err.Status == http.StatusUnauthorized
+	result = remote_err.Status == http.StatusUnauthorized || remote_err.Code == CodeNotAuthenticated
+	return
+}
+
+// Refusal codes (portal contract v3, "Refusals" in the webserver skills).
+const (
+	CodeNotAuthenticated = "not_authenticated"
+	CodeNotAdmin         = "not_admin"
+	CodeViewOnly         = "view_only"
+	CodeSessionOnly      = "session_only"
+	CodeOwnerRequired    = "owner_required"
+	CodeOwnerProtected   = "owner_protected"
+	CodeKeyMintingOff    = "key_minting_off"
+	CodeServiceAccount   = "service_account"
+	CodeNotFound         = "not_found"
+	CodeInvalid          = "invalid"
+	CodeConflict         = "conflict"
+	CodeRateLimited      = "rate_limited"
+	CodeForbidden        = "forbidden"
+)
+
+// CodeOf is err's refusal code, or "" when it has none.
+func CodeOf( err error ) ( code string ) {
+	var remote_err *Error
+	if errors.As( err , &remote_err ) { code = remote_err.Code }
 	return
 }
 
@@ -77,7 +105,29 @@ type Me struct {
 	// 0 and empty on an app from before it.
 	Contract     int      `json:"contract"`
 	Capabilities []string `json:"capabilities"`
+	// Contract v3. Owner repeats IsOwner; Kind is "person" or "service";
+	// Skill and SkillCommit are the template the app came from (empty when
+	// it does not say). Key is what the calling key may do (key_grants),
+	// nil for an older app.
+	Owner       bool      `json:"owner"`
+	Kind        string    `json:"kind"`
+	Skill       string    `json:"skill"`
+	SkillCommit string    `json:"skill_commit"`
+	Key         *KeyGrant `json:"key"`
 }
+
+// KeyGrant is /api/me's "key": the calling key and what it may do.
+type KeyGrant struct {
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	Role        string     `json:"role"`
+	MayMintKeys bool       `json:"may_mint_keys"`
+	MaySignIn   bool       `json:"may_sign_in"`
+	ExpiresAt   *time.Time `json:"expires_at"`
+}
+
+// KindService is a service account's kind: the portal's own account.
+const KindService = "service"
 
 // User is one account as GET /api/admin/users lists it.
 type User struct {
@@ -89,6 +139,8 @@ type User struct {
 	// Contract v2, account_expiry: nil for never, or on an older app.
 	ExpiresAt *time.Time `json:"expires_at"`
 	Expired   bool       `json:"expired"`
+	// Contract v3, service_accounts: "person" or "service".
+	Kind string `json:"kind"`
 }
 
 type usersPage struct {
@@ -135,7 +187,7 @@ func call( ctx context.Context , base_url string , key string , method string , 
 		return
 	}
 	if response.StatusCode < 200 || response.StatusCode > 299 {
-		err = &Error{ Status: response.StatusCode , Message: refusalText( response.StatusCode , raw ) }
+		err = refusal( response.StatusCode , raw )
 		return
 	}
 	if out == nil { return }
@@ -158,18 +210,71 @@ func reachFailure( cause error ) ( result string ) {
 	return
 }
 
-func refusalText( status int , raw []byte ) ( result string ) {
-	reply := struct{ Error string `json:"error"` }{}
+func refusal( status int , raw []byte ) ( remote_err *Error ) {
+	reply := struct {
+		Error string `json:"error"`
+		Code  string `json:"code"`
+		Field string `json:"field"`
+	}{}
 	_ = json.Unmarshal( raw , &reply )
+	remote_err = &Error{ Status: status , Code: reply.Code , Field: reply.Field }
+	remote_err.Message = codeText( status , reply.Code , reply.Field , reply.Error )
+	if remote_err.Message == "" { remote_err.Message = wordText( status , reply.Error ) }
+	return
+}
+
+// codeText words a contract v3 refusal by its code, or "" for none (an
+// older app), to fall back on its words.
+func codeText( status int , code string , field string , said string ) ( result string ) {
+	switch code {
+	case CodeNotAuthenticated:
+		result = "the project no longer takes this key"
+	case CodeNotAdmin:
+		result = "the portal's key there is not an admin's: in that app, Connect ProjectPortal from its owner's API keys screen, and put that key on the project here"
+	case CodeViewOnly:
+		result = "the key there is view-only, so it cannot change anything"
+	case CodeSessionOnly:
+		result = "that project does this only from a browser session, never with a key"
+	case CodeOwnerRequired:
+		result = "only that project's owner may do this to an admin's account (the portal's own account included)"
+	case CodeOwnerProtected:
+		result = "nobody may do this to that project's owner"
+	case CodeKeyMintingOff:
+		result = "the portal's key there may not make or list API keys for other accounts: Connect ProjectPortal again from that app's owner screen, or turn Key minting on for the portal's key"
+	case CodeServiceAccount:
+		result = "that is a service account: it is never signed into, it has keys only"
+	case CodeNotFound:
+		result = "the project has no such account, key or link (or is behind and lacks this)"
+	case CodeInvalid:
+		result = "the project turned the request down: " + said
+		if field != "" { result += " (" + field + ")" }
+	case CodeConflict:
+		result = "the project said: " + said
+	case CodeRateLimited:
+		result = "the project is asking the portal to slow down: try again in a minute"
+	case CodeForbidden:
+		result = "the project refused this: " + said
+	case "":
+		return
+	default:
+		if said == "" { said = code }
+		result = "the project said: " + said
+	}
+	result = fmt.Sprintf( "%s (%d)" , result , status )
+	return
+}
+
+// wordText words a refusal from an app before contract v3, by its text.
+func wordText( status int , said string ) ( result string ) {
 	switch {
-	case reply.Error == "key_minting_off":
+	case said == "key_minting_off":
 		result = "the portal's key there may not make or list API keys for other accounts: in that app, turn Key minting on for the portal's key in its API keys list (403)"
-	case reply.Error == "forbidden" && status == http.StatusForbidden:
+	case said == "forbidden" && status == http.StatusForbidden:
 		// An admin key that an app turns away anyway: some apps (Rook) let
 		// only their owner manage accounts.
 		result = "the portal's key there is an admin's, but that project lets only its owner do this: in the project, sign in as its owner, make an admin API key, and put that key on the project here (403)"
-	case reply.Error != "":
-		result = fmt.Sprintf( "the project said: %s (%d)" , reply.Error , status )
+	case said != "":
+		result = fmt.Sprintf( "the project said: %s (%d)" , said , status )
 	case status == http.StatusUnauthorized:
 		result = "the project no longer takes this key (401)"
 	case status >= 300 && status < 400:

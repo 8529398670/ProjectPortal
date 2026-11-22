@@ -50,7 +50,29 @@ type Project struct {
 	Version      string   `json:"version,omitempty"`
 	Contract     int      `json:"contract,omitempty"`
 	Capabilities []string `json:"capabilities,omitempty"`
+	// Who the admin key is there and what it may do (contract v3), from the
+	// same check; zero on an older app. KeyRotatedAt is when the portal last
+	// stored or rotated that key, for the key-rotation job.
+	KeyFacts     KeyFacts   `json:"key_facts,omitzero"`
+	KeyRotatedAt *time.Time `json:"key_rotated_at,omitempty"`
 	SoftDelete
+}
+
+// KeyFacts is what /api/me says about the portal's admin key on an app.
+// Grants is whether the app reported the key's grants (key_grants); the
+// May* and ExpiresAt fields mean nothing without it.
+type KeyFacts struct {
+	AccountID   uint64     `json:"account_id,omitempty"`
+	Owner       bool       `json:"owner,omitempty"`
+	Kind        string     `json:"kind,omitempty"`
+	Grants      bool       `json:"grants,omitempty"`
+	KeyID       string     `json:"key_id,omitempty"`
+	KeyName     string     `json:"key_name,omitempty"`
+	MayMintKeys bool       `json:"may_mint_keys,omitempty"`
+	MaySignIn   bool       `json:"may_sign_in,omitempty"`
+	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
+	Skill       string     `json:"skill,omitempty"`
+	SkillCommit string     `json:"skill_commit,omitempty"`
 }
 
 const (
@@ -236,6 +258,7 @@ func EditProject( store *db.Store , project_id uint64 , fields ProjectFields ) (
 		if project.BaseURL != fields.BaseURL {
 			moved = true
 			project.AdminKey , project.KeyStatus , project.Health , project.CheckNote , project.CheckedAt = "" , KeyMissing , "" , "" , nil
+			project.KeyFacts , project.KeyRotatedAt = KeyFacts{} , nil
 			if tx_err = clearPersonalKeysTx( tx , func( membership *Membership ) bool { return membership.ProjectID == project_id } ); tx_err != nil { return }
 		}
 		project.Name , project.Description , project.BaseURL = fields.Name , fields.Description , fields.BaseURL
@@ -253,9 +276,28 @@ func EditProject( store *db.Store , project_id uint64 , fields ProjectFields ) (
 // with the role the project reported for it.
 func SetProjectKey( store *db.Store , project_id uint64 , sealed_key string ) ( project *Project , err error ) {
 	project , err = updateProject( store , project_id , func( project *Project ) ( mutate_err error ) {
+		now := time.Now().UTC()
 		project.AdminKey = sealed_key
 		project.KeyStatus , project.CheckNote = KeyOK , ""
-		if sealed_key == "" { project.KeyStatus = KeyMissing }
+		project.KeyFacts , project.KeyRotatedAt = KeyFacts{} , &now
+		if sealed_key == "" { project.KeyStatus , project.KeyRotatedAt = KeyMissing , nil }
+		return
+	} )
+	return
+}
+
+// ErrKeyChanged is a rotated key arriving for a project whose key was
+// replaced while it rotated.
+var ErrKeyChanged = errors.New( "the project's key was changed meanwhile" )
+
+// RecordRotatedKey stores a rotated key in place of old_sealed, the key it
+// was rotated from, and notes when. ErrKeyChanged when the project no longer
+// holds old_sealed.
+func RecordRotatedKey( store *db.Store , project_id uint64 , old_sealed string , new_sealed string ) ( project *Project , err error ) {
+	project , err = updateProject( store , project_id , func( project *Project ) ( mutate_err error ) {
+		if project.AdminKey != old_sealed || old_sealed == "" { return ErrKeyChanged }
+		now := time.Now().UTC()
+		project.AdminKey , project.KeyRotatedAt = new_sealed , &now
 		return
 	} )
 	return
@@ -299,10 +341,11 @@ func RecordCheck( store *db.Store , project_id uint64 , health string , key_stat
 }
 
 // RecordContract keeps what an app said it is and supports.
-func RecordContract( store *db.Store , project_id uint64 , version string , contract int , capabilities []string ) ( err error ) {
+func RecordContract( store *db.Store , project_id uint64 , version string , contract int , capabilities []string , facts KeyFacts ) ( err error ) {
 	err = store.UpdateValue( db.BucketProjects , encryption.Uint64ToBytes( project_id ) , func() any { return &Project{} } , func( item any ) ( mutate_err error ) {
 		project := item.( *Project )
 		project.Version , project.Contract , project.Capabilities = version , contract , slices.Clone( capabilities )
+		project.KeyFacts = facts
 		return
 	} )
 	return
