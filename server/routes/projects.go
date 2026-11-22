@@ -154,7 +154,7 @@ func ( handlers *Handlers ) adminKeyOf( project *models.Project ) ( key string ,
 	return
 }
 
-// remoteRefusal turns a project's failure into the caller's 502, saying what
+// remoteRefusal turns a project's failure into the caller's 424, saying what
 // the project said, and notes a key it no longer takes.
 func ( handlers *Handlers ) remoteRefusal( project *models.Project , cause error , admin_key bool ) ( refused error ) {
 	var remote_err *remote.Error
@@ -165,7 +165,7 @@ func ( handlers *Handlers ) remoteRefusal( project *models.Project , cause error
 	if admin_key && remote_err.Unauthorized() {
 		_ , _ = models.RecordCheck( handlers.Store , project.ID , models.HealthUp , models.KeyInvalid , remote_err.Message )
 	}
-	refused = refuse( fiber.StatusBadGateway , project.Name + ": " + remote_err.Message )
+	refused = refuse( fiber.StatusFailedDependency , project.Name + ": " + remote_err.Message )
 	return
 }
 
@@ -184,9 +184,9 @@ type projectLinkReply struct {
 // one.
 //
 // @route("POST /api/projects/{project_id}/join", summary="Join a project",
-//     tag="Projects", errors=(404, 409, 502),
+//     tag="Projects", errors=(404, 409, 424),
 //     description="Make yourself an account on a project you may use, named as you are here, and get a "
-//         "login link for it. 409 when you are already on it or it is not set up yet; 502 when the "
+//         "login link for it. 409 when you are already on it or it is not set up yet; 424 when the "
 //         "project refused or did not answer, with what it said.",
 //     mcp_note="Answers login_url: give it to the person to open (it works once, for 15 minutes).",
 //     mcp="join_project",
@@ -248,10 +248,10 @@ func ( handlers *Handlers ) joinAs( c fiber.Ctx , project *models.Project , user
 // you are on, whatever happened to your cookie there.
 //
 // @route("POST /api/projects/{project_id}/open", summary="Sign in to a project",
-//     tag="Projects", errors=(404, 409, 502),
+//     tag="Projects", errors=(404, 409, 424),
 //     description="A fresh login link for your account on a project you are on: with your own key when "
 //         "you attached one, otherwise made by the portal's admin key there. 409 when you are not on it "
-//         "yet (join it), 502 when the project refused, with what it said.",
+//         "yet (join it), 424 when the project refused, with what it said.",
 //     mcp_note="Answers login_url: give it to the person to open (it works once, for 15 minutes).",
 //     mcp="open_project",
 // )
@@ -326,7 +326,7 @@ type ownKeyReply struct {
 // account of its choosing.
 //
 // @route("POST /api/projects/{project_id}/own-key", summary="Use your own key on a project",
-//     tag="Projects", access=SESSION_ONLY, errors=(404, 502),
+//     tag="Projects", access=SESSION_ONLY, errors=(404, 424),
 //     description="Keep an API key of yours on that project, and sign in with it from now on. On the "
 //         "project, switch on Sign-in links for that key (API keys card), or opening it will be refused.",
 // )

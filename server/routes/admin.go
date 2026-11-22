@@ -532,9 +532,10 @@ func ( refused *refusal ) Refused() ( status int , message string ) {
 }
 
 func ( refused *refusal ) send( c fiber.Ctx ) ( err error ) {
-	// A 502 is another app's refusal, whose words are the caller's to read
-	// (see projects.go): every other 5xx is ours, and goes to the log.
-	if refused.status >= 500 && refused.status != fiber.StatusBadGateway {
+	// Every 5xx is ours, and goes to the log. Another app's refusal is a 424
+	// (see projects.go), not a 502: Cloudflare swaps an origin's 502 for its
+	// own page, and the project's words would never reach the caller.
+	if refused.status >= 500 {
 		err = serverError( c , refused.cause )
 		return
 	}

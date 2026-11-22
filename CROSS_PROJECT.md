@@ -26,7 +26,7 @@ Every project in the catalog must serve these (see `server/remote/remote.go`):
 | `POST /api/account/login-link` | Open with someone's own key | own key, with Sign-in links on |
 
 If an app falls out of sync (Check now shows a refused key, or Join/Open answers
-502), check it against this table first. The usual fix is the `webserver-upgrade`
+424, which the portal used to send as 502), check it against this table first. The usual fix is the `webserver-upgrade`
 skill run in that app.
 
 ### Portal contract v2 (2026-11-20): exact wire format

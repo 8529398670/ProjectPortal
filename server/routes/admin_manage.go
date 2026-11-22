@@ -108,7 +108,7 @@ type createdRemoteUserReply struct {
 // view-only account, or one for someone here.
 //
 // @route("POST /api/admin/projects/{project_id}/remote-users", summary="Make an account on a project",
-//     tag="Manage project", role=ADMIN, status=201, errors=(404, 409, 502),
+//     tag="Manage project", role=ADMIN, status=201, errors=(404, 409, 424),
 //     description="Make an account on the project itself, with a role and an optional expiry, and get "
 //         "its login link. With user_id, that person here is put on the project with it.",
 //     mcp="admin_create_remote_user",
@@ -160,7 +160,7 @@ func ( handlers *Handlers ) createRemoteUser( c fiber.Ctx , in *createRemoteUser
 // make one for, to hand over by hand.
 //
 // @route("POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link", summary="A login link for an account on a project",
-//     tag="Manage project", role=ADMIN, errors=(404, 409, 502),
+//     tag="Manage project", role=ADMIN, errors=(404, 409, 424),
 //     description="A fresh login link for one account on the project. It works once, for 15 minutes.",
 //     mcp="admin_remote_login_link",
 //     mcp_note="Answers login_url: hand it to the person it is for.",
@@ -185,7 +185,7 @@ type remoteRoleRequest struct {
 // setRemoteRole changes an account's role on the project.
 //
 // @route("POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/role", summary="Change an account's role on a project",
-//     tag="Manage project", role=ADMIN, errors=(400, 404, 409, 502),
+//     tag="Manage project", role=ADMIN, errors=(400, 404, 409, 424),
 //     description="admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.",
 //     mcp="admin_set_remote_role",
 // )
@@ -218,7 +218,7 @@ type remoteExpiryReply struct {
 // setRemoteExpiry is when an account on the project stops working.
 //
 // @route("POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/expiry", summary="Set when an account on a project expires",
-//     tag="Manage project", role=ADMIN, errors=(404, 409, 502),
+//     tag="Manage project", role=ADMIN, errors=(404, 409, 424),
 //     description="The account stops working expires_in_days from now; 0 means never. Needs an app with "
 //         "accounts that expire.",
 //     mcp="admin_set_remote_expiry",
@@ -248,7 +248,7 @@ type remoteDisabledRequest struct {
 // setRemoteDisabled switches an account on the project off, or back on.
 //
 // @route("POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/disabled", summary="Disable or enable an account on a project",
-//     tag="Manage project", role=ADMIN, errors=(404, 409, 502),
+//     tag="Manage project", role=ADMIN, errors=(404, 409, 424),
 //     description="disabled true stops the account signing in there, and ends its sessions.",
 //     mcp="admin_set_remote_disabled",
 // )
@@ -268,7 +268,7 @@ func ( handlers *Handlers ) setRemoteDisabled( c fiber.Ctx , in *remoteDisabledR
 // revokeRemoteAccess ends every way an account on the project is signed in.
 //
 // @route("POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access", summary="Sign an account out everywhere on a project",
-//     tag="Manage project", role=ADMIN, errors=(404, 409, 502),
+//     tag="Manage project", role=ADMIN, errors=(404, 409, 424),
 //     description="End every session, login link and API key the account has there. The account stays "
 //         "enabled; a new login link signs it back in.",
 //     mcp="admin_revoke_remote_access", destructive=True,
@@ -290,7 +290,7 @@ func ( handlers *Handlers ) revokeRemoteAccess( c fiber.Ctx , in *remoteUserPath
 // forgets it here.
 //
 // @route("POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/delete", summary="Delete an account on a project",
-//     tag="Manage project", role=ADMIN, errors=(404, 409, 502),
+//     tag="Manage project", role=ADMIN, errors=(404, 409, 424),
 //     description="Delete the account on the project itself, with everything it held there. Anyone here it "
 //         "belonged to comes off the project. It cannot be undone.",
 //     mcp="admin_delete_remote_user", destructive=True,
@@ -318,7 +318,7 @@ type remoteInviteLinksReply struct {
 // remoteInviteLinks is the project's invite links.
 //
 // @route("GET /api/admin/projects/{project_id}/invite-links", summary="A project's invite links",
-//     tag="Manage project", role=ADMIN, errors=(404, 409, 502),
+//     tag="Manage project", role=ADMIN, errors=(404, 409, 424),
 //     description="The invite links on the project itself. Needs an app with invite links switched on.",
 //     mcp="admin_list_remote_invite_links", read_only=True,
 // )
@@ -349,7 +349,7 @@ type createdRemoteInviteReply struct {
 // createRemoteInvite makes an invite link on the project.
 //
 // @route("POST /api/admin/projects/{project_id}/invite-links", summary="Make an invite link on a project",
-//     tag="Manage project", role=ADMIN, status=201, errors=(400, 404, 409, 502),
+//     tag="Manage project", role=ADMIN, status=201, errors=(400, 404, 409, 424),
 //     description="One link a group can join the project itself through: up to max_uses accounts, for "
 //         "days days. role viewer makes them view only, on an app that has it.",
 //     mcp="admin_create_remote_invite_link",
@@ -383,7 +383,7 @@ type remoteInvitePath struct {
 // revokeRemoteInvite stops an invite link on the project working.
 //
 // @route("POST /api/admin/projects/{project_id}/invite-links/{link_id}/revoke", summary="Stop an invite link on a project",
-//     tag="Manage project", role=ADMIN, errors=(404, 409, 502),
+//     tag="Manage project", role=ADMIN, errors=(404, 409, 424),
 //     description="The link stops working. Accounts already made through it stay.",
 //     mcp="admin_revoke_remote_invite_link", destructive=True,
 // )
@@ -409,7 +409,7 @@ type remoteKeysReply struct {
 // remoteKeys is one account's API keys on the project.
 //
 // @route("GET /api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys", summary="An account's API keys on a project",
-//     tag="Manage project", role=ADMIN, errors=(404, 409, 502),
+//     tag="Manage project", role=ADMIN, errors=(404, 409, 424),
 //     description="The account's API keys there, never their secrets. Needs an app where the portal's key "
 //         "may make keys.",
 //     mcp="admin_list_remote_keys", read_only=True,
@@ -437,7 +437,7 @@ type mintRemoteKeyRequest struct {
 // the portal's key there: revoking that revokes this too.
 //
 // @route("POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys", summary="Make an API key on a project",
-//     tag="Manage project", role=ADMIN, access=SESSION_ONLY, status=201, errors=(400, 404, 409, 502),
+//     tag="Manage project", role=ADMIN, access=SESSION_ONLY, status=201, errors=(400, 404, 409, 424),
 //     description="An API key for the account on the project, shown once. It always expires, its role is "
 //         "no higher than the account's, and revoking the portal's admin key there revokes it too.",
 // )
@@ -468,7 +468,7 @@ type remoteKeyPath struct {
 // made.
 //
 // @route("POST /api/admin/projects/{project_id}/keys/{key_id}/revoke", summary="Revoke an API key on a project",
-//     tag="Manage project", role=ADMIN, errors=(404, 409, 502),
+//     tag="Manage project", role=ADMIN, errors=(404, 409, 424),
 //     description="The key stops working there now, and so does every key it made.",
 //     mcp="admin_revoke_remote_key", destructive=True,
 // )

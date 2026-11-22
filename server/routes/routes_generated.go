@@ -249,7 +249,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Access: apidoc.SessionOnly,
 		Role: apidoc.Admin,
 		Status: 201,
-		Errors: []int{ 400 , 401 , 403 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 424 },
 	} , handlers.createProject , handlers.Guard.RequireAdmin , handlers.Guard.RequireSession )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/order" , apidoc.Op{
 		Summary: "Order the catalog",
@@ -299,14 +299,14 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Description: "Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.",
 		Tag: "Catalog",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.grantProject , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "GET" , "/api/admin/projects/{project_id}/invite-links" , apidoc.Op{
 		Summary: "A project's invite links",
 		Description: "The invite links on the project itself. Needs an app with invite links switched on.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.remoteInviteLinks , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/invite-links" , apidoc.Op{
 		Summary: "Make an invite link on a project",
@@ -314,14 +314,14 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Tag: "Manage project",
 		Role: apidoc.Admin,
 		Status: 201,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.createRemoteInvite , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/invite-links/{link_id}/revoke" , apidoc.Op{
 		Summary: "Stop an invite link on a project",
 		Description: "The link stops working. Accounts already made through it stay.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.revokeRemoteInvite , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/key" , apidoc.Op{
 		Summary: "Set a project's admin key",
@@ -329,21 +329,21 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Tag: "Catalog",
 		Access: apidoc.SessionOnly,
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 424 },
 	} , handlers.setProjectKey , handlers.Guard.RequireAdmin , handlers.Guard.RequireSession )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/keys/{key_id}/revoke" , apidoc.Op{
 		Summary: "Revoke an API key on a project",
 		Description: "The key stops working there now, and so does every key it made.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.revokeRemoteKey , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/link/{user_id}" , apidoc.Op{
 		Summary: "Match someone to their account on a project",
 		Description: "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead.",
 		Tag: "Catalog",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.linkRemote , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/members/{user_id}/remove" , apidoc.Op{
 		Summary: "Take someone off a project here",
@@ -357,7 +357,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Description: "The accounts on the project itself, as its admin key sees them, 200 at a time.",
 		Tag: "Catalog",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.remoteUsers , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users" , apidoc.Op{
 		Summary: "Make an account on a project",
@@ -365,35 +365,35 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Tag: "Manage project",
 		Role: apidoc.Admin,
 		Status: 201,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.createRemoteUser , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/delete" , apidoc.Op{
 		Summary: "Delete an account on a project",
 		Description: "Delete the account on the project itself, with everything it held there. Anyone here it belonged to comes off the project. It cannot be undone.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.deleteRemoteUser , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/disabled" , apidoc.Op{
 		Summary: "Disable or enable an account on a project",
 		Description: "disabled true stops the account signing in there, and ends its sessions.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.setRemoteDisabled , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/expiry" , apidoc.Op{
 		Summary: "Set when an account on a project expires",
 		Description: "The account stops working expires_in_days from now; 0 means never. Needs an app with accounts that expire.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.setRemoteExpiry , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "GET" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys" , apidoc.Op{
 		Summary: "An account's API keys on a project",
 		Description: "The account's API keys there, never their secrets. Needs an app where the portal's key may make keys.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.remoteKeys , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys" , apidoc.Op{
 		Summary: "Make an API key on a project",
@@ -402,28 +402,28 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Access: apidoc.SessionOnly,
 		Role: apidoc.Admin,
 		Status: 201,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.mintRemoteKey , handlers.Guard.RequireAdmin , handlers.Guard.RequireSession )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link" , apidoc.Op{
 		Summary: "A login link for an account on a project",
 		Description: "A fresh login link for one account on the project. It works once, for 15 minutes.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.remoteLoginLink , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access" , apidoc.Op{
 		Summary: "Sign an account out everywhere on a project",
 		Description: "End every session, login link and API key the account has there. The account stays enabled; a new login link signs it back in.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.revokeRemoteAccess , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/role" , apidoc.Op{
 		Summary: "Change an account's role on a project",
 		Description: "admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.setRemoteRole , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/restore" , apidoc.Op{
 		Summary: "Undo deleting a project",
@@ -956,9 +956,9 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.favoriteProject , handlers.Guard.RequireLogin )
 	apidoc.Mount( app , "POST" , "/api/projects/{project_id}/join" , apidoc.Op{
 		Summary: "Join a project",
-		Description: "Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 502 when the project refused or did not answer, with what it said.",
+		Description: "Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said.",
 		Tag: "Projects",
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.joinProject , handlers.Guard.RequireLogin )
 	apidoc.Mount( app , "POST" , "/api/projects/{project_id}/leave" , apidoc.Op{
 		Summary: "Leave a project",
@@ -968,16 +968,16 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.leaveProject , handlers.Guard.RequireLogin )
 	apidoc.Mount( app , "POST" , "/api/projects/{project_id}/open" , apidoc.Op{
 		Summary: "Sign in to a project",
-		Description: "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 502 when the project refused, with what it said.",
+		Description: "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 424 when the project refused, with what it said.",
 		Tag: "Projects",
-		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.openProject , handlers.Guard.RequireLogin )
 	apidoc.Mount( app , "POST" , "/api/projects/{project_id}/own-key" , apidoc.Op{
 		Summary: "Use your own key on a project",
 		Description: "Keep an API key of yours on that project, and sign in with it from now on. On the project, switch on Sign-in links for that key (API keys card), or opening it will be refused.",
 		Tag: "Projects",
 		Access: apidoc.SessionOnly,
-		Errors: []int{ 400 , 401 , 403 , 404 , 502 },
+		Errors: []int{ 400 , 401 , 403 , 404 , 424 },
 	} , handlers.setOwnKey , handlers.Guard.RequireLogin , handlers.Guard.RequireSession )
 	apidoc.Mount( app , "POST" , "/api/projects/{project_id}/own-key/remove" , apidoc.Op{
 		Summary: "Stop using your own key on a project",
@@ -1450,7 +1450,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/projects/{project_id}/join" , handlers.joinProject , mcp.Tool{
 		Name: "join_project",
 		Title: "Join a project",
-		Description: "Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 502 when the project refused or did not answer, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
+		Description: "Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/account/sessions/{session_id}/label" , handlers.labelMySession , mcp.Tool{
 		Name: "label_my_session",
@@ -1484,7 +1484,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/projects/{project_id}/open" , handlers.openProject , mcp.Tool{
 		Name: "open_project",
 		Title: "Sign in to a project",
-		Description: "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 502 when the project refused, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
+		Description: "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 424 when the project refused, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/projects/{project_id}/own-key/remove" , handlers.removeOwnKey , mcp.Tool{
 		Name: "remove_own_project_key",

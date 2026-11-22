@@ -192,7 +192,7 @@ func tagOrder( used map[string]bool ) ( result []string ) {
 	return
 }
 
-var errorStatuses = []int{ 400 , 401 , 403 , 404 , 409 , 429 , 502 , 503 }
+var errorStatuses = []int{ 400 , 401 , 403 , 404 , 409 , 424 , 429 , 503 }
 
 var errorMeanings = map[int]string{
 	400: "The request was refused as it stands.",
@@ -200,8 +200,8 @@ var errorMeanings = map[int]string{
 	403: "Not allowed, or a bad csrf_token.",
 	404: "No such thing, or this feature is switched off.",
 	409: "The record has moved on: an undo too late, or a stale edit.",
+	424: "Another app this one calls refused or did not answer; error says what it said.",
 	429: "Too many requests.",
-	502: "Another app this one calls refused or did not answer; error says what it said.",
 	503: "In maintenance mode. Retry-After says when to try again.",
 }
 

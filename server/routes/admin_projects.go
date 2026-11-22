@@ -170,7 +170,7 @@ func ( handlers *Handlers ) checkAdminKey( name string , base_url string , key s
 	defer cancel()
 	me , remote_err := remote.CheckKey( ctx , base_url , key )
 	if remote_err != nil {
-		refused = refuse( fiber.StatusBadGateway , name + ": " + remote_err.Error() )
+		refused = refuse( fiber.StatusFailedDependency , name + ": " + remote_err.Error() )
 		return
 	}
 	if me.Role != models.RoleAdmin {
@@ -184,7 +184,7 @@ func ( handlers *Handlers ) checkAdminKey( name string , base_url string , key s
 // createProject adds a project to the catalog.
 //
 // @route("POST /api/admin/projects", summary="Add a project",
-//     tag="Catalog", role=ADMIN, access=SESSION_ONLY, status=201, errors=(502,),
+//     tag="Catalog", role=ADMIN, access=SESSION_ONLY, status=201, errors=(424,),
 //     description="Add a project to the catalog. With admin_key (an admin API key there), people can "
 //         "join it straight away; the key is checked first and never shown again.",
 // )
@@ -242,7 +242,7 @@ type projectKeyRequest struct {
 // setProjectKey gives the portal a new admin key for a project, checked first.
 //
 // @route("POST /api/admin/projects/{project_id}/key", summary="Set a project's admin key",
-//     tag="Catalog", role=ADMIN, access=SESSION_ONLY, errors=(404, 502),
+//     tag="Catalog", role=ADMIN, access=SESSION_ONLY, errors=(404, 424),
 //     description="Replace the admin API key the portal uses on a project. It must be an admin key "
 //         "there. Revoking the old one on the project signs out everyone it signed in.",
 // )
@@ -447,7 +447,7 @@ type grantRequest struct {
 // is made now, and they sign in from their own list.
 //
 // @route("POST /api/admin/projects/{project_id}/grant/{user_id}", summary="Put someone on a project",
-//     tag="Catalog", role=ADMIN, errors=(404, 409, 502),
+//     tag="Catalog", role=ADMIN, errors=(404, 409, 424),
 //     description="Make someone an account on the project now, as if they had joined, optionally view only "
 //         "or expiring. They sign in from their own list; no link is handed to you.",
 //     mcp="admin_grant_project",
@@ -505,7 +505,7 @@ type remoteUsersReply struct {
 // to the one they already use there.
 //
 // @route("GET /api/admin/projects/{project_id}/remote-users", summary="A project's own accounts",
-//     tag="Catalog", role=ADMIN, errors=(404, 409, 502),
+//     tag="Catalog", role=ADMIN, errors=(404, 409, 424),
 //     description="The accounts on the project itself, as its admin key sees them, 200 at a time.",
 //     mcp="admin_list_remote_users", read_only=True,
 // )
@@ -552,7 +552,7 @@ func ( handlers *Handlers ) remoteOwners( project_id uint64 ) ( owners map[uint6
 // opening it signs them into that one instead of a new one.
 //
 // @route("POST /api/admin/projects/{project_id}/link/{user_id}", summary="Match someone to their account on a project",
-//     tag="Catalog", role=ADMIN, errors=(404, 409, 502),
+//     tag="Catalog", role=ADMIN, errors=(404, 409, 424),
 //     description="Say which account on the project is theirs. Opening the project then signs them into "
 //         "it. The project's owner, and its admins unless the portal's key is the owner's, cannot be "
 //         "signed in this way: they attach their own key instead.",

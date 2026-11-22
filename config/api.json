@@ -51,6 +51,16 @@
         },
         "description": "The record has moved on: an undo too late, or a stale edit."
       },
+      "E424": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "Another app this one calls refused or did not answer; error says what it said."
+      },
       "E429": {
         "content": {
           "application/json": {
@@ -60,16 +70,6 @@
           }
         },
         "description": "Too many requests."
-      },
-      "E502": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/Error"
-            }
-          }
-        },
-        "description": "Another app this one calls refused or did not answer; error says what it said."
       },
       "E503": {
         "content": {
@@ -4770,11 +4770,11 @@
           "403": {
             "$ref": "#/components/responses/E403"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -5530,11 +5530,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -5649,11 +5649,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -5769,11 +5769,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -5872,11 +5872,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -5970,11 +5970,11 @@
           "404": {
             "$ref": "#/components/responses/E404"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -6070,11 +6070,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -6180,11 +6180,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -6392,11 +6392,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -6516,11 +6516,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -6618,11 +6618,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -6726,11 +6726,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -6845,11 +6845,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -6983,11 +6983,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -7154,11 +7154,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -7258,11 +7258,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -7360,11 +7360,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -7473,11 +7473,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -13199,7 +13199,7 @@
     },
     "/api/projects/{project_id}/join": {
       "post": {
-        "description": "Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 502 when the project refused or did not answer, with what it said.",
+        "description": "Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said.",
         "operationId": "post_api_projects_project_id_join",
         "parameters": [
           {
@@ -13269,11 +13269,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -13383,7 +13383,7 @@
     },
     "/api/projects/{project_id}/open": {
       "post": {
-        "description": "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 502 when the project refused, with what it said.",
+        "description": "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 424 when the project refused, with what it said.",
         "operationId": "post_api_projects_project_id_open",
         "parameters": [
           {
@@ -13453,11 +13453,11 @@
           "409": {
             "$ref": "#/components/responses/E409"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"
@@ -13559,11 +13559,11 @@
           "404": {
             "$ref": "#/components/responses/E404"
           },
+          "424": {
+            "$ref": "#/components/responses/E424"
+          },
           "429": {
             "$ref": "#/components/responses/E429"
-          },
-          "502": {
-            "$ref": "#/components/responses/E502"
           },
           "503": {
             "$ref": "#/components/responses/E503"

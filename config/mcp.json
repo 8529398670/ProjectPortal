@@ -2632,7 +2632,7 @@
         "readOnlyHint": false,
         "title": "Join a project"
       },
-      "description": "Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 502 when the project refused or did not answer, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
+      "description": "Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2822,7 +2822,7 @@
         "readOnlyHint": false,
         "title": "Sign in to a project"
       },
-      "description": "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 502 when the project refused, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
+      "description": "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 424 when the project refused, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

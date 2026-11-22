@@ -1198,7 +1198,7 @@ favorite true keeps the project at the top of your list.
 
 ## join_project
 
-Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 502 when the project refused or did not answer, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).
+Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).
 
 |  |  |
 |---|---|
@@ -1300,7 +1300,7 @@ People with an active account, a page at a time: id and display name. Use the id
 
 ## open_project
 
-A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 502 when the project refused, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).
+A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 424 when the project refused, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).
 
 |  |  |
 |---|---|

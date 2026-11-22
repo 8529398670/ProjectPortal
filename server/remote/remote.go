@@ -162,6 +162,8 @@ func refusalText( status int , raw []byte ) ( result string ) {
 	reply := struct{ Error string `json:"error"` }{}
 	_ = json.Unmarshal( raw , &reply )
 	switch {
+	case reply.Error == "key_minting_off":
+		result = "the portal's key there may not make or list API keys for other accounts: in that app, turn Key minting on for the portal's key in its API keys list (403)"
 	case reply.Error != "":
 		result = fmt.Sprintf( "the project said: %s (%d)" , reply.Error , status )
 	case status == http.StatusUnauthorized:

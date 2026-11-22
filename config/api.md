@@ -38,8 +38,8 @@ An error reply is a JSON object whose `error` says what went wrong.
 | 403 | Not allowed, or a bad csrf_token. | [`Error`](#error) |
 | 404 | No such thing, or this feature is switched off. | [`Error`](#error) |
 | 409 | The record has moved on: an undo too late, or a stale edit. | [`Error`](#error) |
+| 424 | Another app this one calls refused or did not answer; error says what it said. | [`Error`](#error) |
 | 429 | Too many requests. | [`Error`](#error) |
-| 502 | Another app this one calls refused or did not answer; error says what it said. | [`Error`](#error) |
 | 503 | In maintenance mode. Retry-After says when to try again. | [`Maintenance`](#maintenance) |
 
 ## Account
@@ -2691,7 +2691,7 @@ Add a project to the catalog. With admin_key (an admin API key there), people ca
 |  |  |
 |---|---|
 | Who may call | browser session only, admins |
-| Errors | 400, 401, 403, 429, 502, 503 |
+| Errors | 400, 401, 403, 424, 429, 503 |
 
 **Request body**
 
@@ -2914,7 +2914,7 @@ Make someone an account on the project now, as if they had joined, optionally vi
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_grant_project`](mcp.md#admin_grant_project) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -2946,7 +2946,7 @@ Replace the admin API key the portal uses on a project. It must be an admin key 
 |  |  |
 |---|---|
 | Who may call | browser session only, admins |
-| Errors | 400, 401, 403, 404, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 424, 429, 503 |
 
 **Parameters**
 
@@ -2977,7 +2977,7 @@ Say which account on the project is theirs. Opening the project then signs them 
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_link_remote_user`](mcp.md#admin_link_remote_user) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3041,7 +3041,7 @@ The accounts on the project itself, as its admin key sees them, 200 at a time.
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_list_remote_users`](mcp.md#admin_list_remote_users) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3148,7 +3148,7 @@ The invite links on the project itself. Needs an app with invite links switched 
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_list_remote_invite_links`](mcp.md#admin_list_remote_invite_links) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3181,7 +3181,7 @@ One link a group can join the project itself through: up to max_uses accounts, f
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_create_remote_invite_link`](mcp.md#admin_create_remote_invite_link) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3215,7 +3215,7 @@ The link stops working. Accounts already made through it stay.
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_revoke_remote_invite_link`](mcp.md#admin_revoke_remote_invite_link) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3246,7 +3246,7 @@ The key stops working there now, and so does every key it made.
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_revoke_remote_key`](mcp.md#admin_revoke_remote_key) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3277,7 +3277,7 @@ Make an account on the project itself, with a role and an optional expiry, and g
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_create_remote_user`](mcp.md#admin_create_remote_user) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3312,7 +3312,7 @@ Delete the account on the project itself, with everything it held there. Anyone 
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_delete_remote_user`](mcp.md#admin_delete_remote_user) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3343,7 +3343,7 @@ disabled true stops the account signing in there, and ends its sessions.
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_set_remote_disabled`](mcp.md#admin_set_remote_disabled) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3375,7 +3375,7 @@ The account stops working expires_in_days from now; 0 means never. Needs an app 
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_set_remote_expiry`](mcp.md#admin_set_remote_expiry) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3408,7 +3408,7 @@ The account's API keys there, never their secrets. Needs an app where the portal
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_list_remote_keys`](mcp.md#admin_list_remote_keys) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3442,7 +3442,7 @@ An API key for the account on the project, shown once. It always expires, its ro
 |  |  |
 |---|---|
 | Who may call | browser session only, admins |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3486,7 +3486,7 @@ A fresh login link for one account on the project. It works once, for 15 minutes
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_remote_login_link`](mcp.md#admin_remote_login_link) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3518,7 +3518,7 @@ End every session, login link and API key the account has there. The account sta
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_revoke_remote_access`](mcp.md#admin_revoke_remote_access) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3549,7 +3549,7 @@ admin, user, or viewer (view only, on an app that has it). The project's owner c
 |---|---|
 | Who may call | browser session or API key, admins |
 | MCP tool | [`admin_set_remote_role`](mcp.md#admin_set_remote_role) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3683,13 +3683,13 @@ favorite true keeps the project at the top of your list.
 
 Join a project
 
-Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 502 when the project refused or did not answer, with what it said.
+Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said.
 
 |  |  |
 |---|---|
 | Who may call | browser session or API key, anyone signed in |
 | MCP tool | [`join_project`](mcp.md#join_project) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3744,13 +3744,13 @@ Take a project off your list. Your account on the project stays as it is; joinin
 
 Sign in to a project
 
-A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 502 when the project refused, with what it said.
+A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 424 when the project refused, with what it said.
 
 |  |  |
 |---|---|
 | Who may call | browser session or API key, anyone signed in |
 | MCP tool | [`open_project`](mcp.md#open_project) |
-| Errors | 400, 401, 403, 404, 409, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
 
@@ -3780,7 +3780,7 @@ Keep an API key of yours on that project, and sign in with it from now on. On th
 |  |  |
 |---|---|
 | Who may call | browser session only, anyone signed in |
-| Errors | 400, 401, 403, 404, 429, 502, 503 |
+| Errors | 400, 401, 403, 404, 424, 429, 503 |
 
 **Parameters**
 
