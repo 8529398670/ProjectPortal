@@ -162,6 +162,8 @@ const Pager = {
     try {
       page = await fetchPage( offset );
     } catch ( error ) {
+      // A newer load has taken over: its own answer says what happened.
+      if ( turn !== this.loads[ table ] ) return null;
       this.release( table );
       App.showError( error.message );
       return null;

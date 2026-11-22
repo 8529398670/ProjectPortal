@@ -164,6 +164,10 @@ func refusalText( status int , raw []byte ) ( result string ) {
 	switch {
 	case reply.Error == "key_minting_off":
 		result = "the portal's key there may not make or list API keys for other accounts: in that app, turn Key minting on for the portal's key in its API keys list (403)"
+	case reply.Error == "forbidden" && status == http.StatusForbidden:
+		// An admin key that an app turns away anyway: some apps (Rook) let
+		// only their owner manage accounts.
+		result = "the portal's key there is an admin's, but that project lets only its owner do this: in the project, sign in as its owner, make an admin API key, and put that key on the project here (403)"
 	case reply.Error != "":
 		result = fmt.Sprintf( "the project said: %s (%d)" , reply.Error , status )
 	case status == http.StatusUnauthorized:

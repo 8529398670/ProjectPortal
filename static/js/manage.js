@@ -7,9 +7,15 @@
 const Manage = {
   projectId: null,
   projects: [],
+  // The rows the people table shows (narrowed by its search), and every
+  // account on the project, for the API keys account picker.
   people: [],
+  accounts: [],
+  // The project the tables now hold, so a switch empties them at once
+  // instead of leaving the last project's rows under the new name.
+  shownId: null,
 
-  async init( me ) {
+  init( me ) {
     if ( me.role !== "admin" ) return;
     Dom.show( Dom.get( "manage-panel" ) , true );
     Dom.get( "manage-project" ).addEventListener( "change" , ( event ) => {
@@ -27,12 +33,18 @@ const Manage = {
     window.addEventListener( "nav" , () => {
       if ( Nav.current() === "manage" ) this.fillProjects();
     } );
-    await this.fillProjects();
+    // Nothing to load yet: Nav.init's first "nav" does it if this screen opens.
   },
 
   // The project picker, keeping the one picked while it still exists.
   async fillProjects() {
-    const page = await Api.listCatalog( 0 , { limit: 1000 } );
+    let page;
+    try {
+      page = await Api.listCatalog( 0 , { limit: 1000 } );
+    } catch ( error ) {
+      App.showError( error.message );
+      return;
+    }
     this.projects = page.projects;
     const select = Dom.get( "manage-project" );
     Dom.swap( select , ...page.projects.map( ( project ) => Dom.el( "option" , { text: project.name , attrs: { value: String( project.id ) } } ) ) );
@@ -45,10 +57,10 @@ const Manage = {
   },
 
   // From a Catalog row's Manage button.
-  async showFor( projectId ) {
+  // Nav.show sends "nav", whose listener fills the picker and loads it.
+  showFor( projectId ) {
     this.projectId = projectId;
     Nav.show( "manage" );
-    await this.fillProjects();
   },
 
   project() {
@@ -75,13 +87,20 @@ const Manage = {
 
   async load() {
     if ( !this.projectId ) return;
+    if ( this.shownId !== this.projectId ) {
+      this.shownId = this.projectId;
+      [ "manage-people-table" , "manage-invites-table" , "manage-keys-table" ].forEach( ( table ) => Pager.reset( table ) );
+      this.people = [];
+      this.accounts = [];
+      this.fillKeyAccounts();
+    }
     this.showSupport();
     this.fillRoles( Dom.get( "manage-new-role" ) , true );
     this.fillRoles( Dom.get( "manage-invite-role" ) , false );
     this.fillRoles( Dom.get( "manage-key-role" ) , true );
     Dom.get( "manage-new-days" ).disabled = !this.has( "account_expiry" );
     Dom.get( "manage-guest-button" ).disabled = !this.has( "viewer_role" ) || !this.has( "account_expiry" );
-    await this.refreshPeople();
+    await this.refreshAll();
     if ( Dom.get( "manage-tab-invites" ).classList.contains( "active" ) ) await this.refreshInvites();
     if ( Dom.get( "manage-tab-keys" ).classList.contains( "active" ) ) await this.refreshKeys();
   },
@@ -127,6 +146,32 @@ const Manage = {
       this.people.push( user );
       body.appendChild( this.personRow( user ) );
     } );
+  },
+
+  // The table and the key account picker, after something changed accounts.
+  async refreshAll() {
+    await Promise.all( [ this.refreshPeople() , this.refreshAccounts() ] );
+  },
+
+  // Every account on the project, all pages, whatever the search box says:
+  // the key account picker lists them all. Errors show on the table's load.
+  async refreshAccounts() {
+    const projectId = this.projectId;
+    if ( !projectId ) return;
+    const accounts = [];
+    let offset = 0;
+    try {
+      for ( let pages = 0 ; pages < 50 ; pages++ ) {
+        const page = await Api.remoteUsers( projectId , "" , offset );
+        accounts.push( ...page.users );
+        if ( page.next === null || page.next === undefined ) break;
+        offset = page.next;
+      }
+    } catch ( error ) {
+      return;
+    }
+    if ( projectId !== this.projectId ) return;
+    this.accounts = accounts;
     this.fillKeyAccounts();
   },
 
@@ -200,7 +245,7 @@ const Manage = {
       Dom.get( "manage-new-form" ).reset();
       Dom.get( "manage-new-role" ).value = "user";
       await this.handLink( project , name , answer.login_url );
-      await this.refreshPeople();
+      await this.refreshAll();
     } catch ( error ) { App.showError( error.message ); }
   },
 
@@ -229,7 +274,7 @@ const Manage = {
         options: roles.map( ( role ) => ( { value: role , label: I18n.get( "manage.role_" + role ) } ) ) , value: user.role } ],
       save: ( values ) => Api.setRemoteRole( this.projectId , user.id , values.role ),
     } );
-    if ( saved !== null ) await this.refreshPeople();
+    if ( saved !== null ) await this.refreshAll();
   },
 
   async onExpiry( user ) {
@@ -263,7 +308,7 @@ const Manage = {
     if ( !( await Dom.confirm( question ) ) ) return;
     try {
       await Api.deleteRemoteUser( this.projectId , user.id );
-      await this.refreshPeople();
+      await this.refreshAll();
     } catch ( error ) { App.showError( error.message ); }
   },
 
@@ -328,9 +373,10 @@ const Manage = {
   fillKeyAccounts() {
     const select = Dom.get( "manage-key-account" );
     const picked = select.value;
-    const accounts = this.people.filter( ( user ) => !user.owner );
+    const accounts = this.accounts.filter( ( user ) => !user.owner );
     Dom.swap( select , ...accounts.map( ( user ) => Dom.el( "option" , { text: user.display_name , attrs: { value: String( user.id ) } } ) ) );
     if ( accounts.some( ( user ) => String( user.id ) === picked ) ) select.value = picked;
+    if ( select.value !== picked ) this.refreshKeys();
   },
 
   async showKeysFor( user ) {
@@ -341,7 +387,7 @@ const Manage = {
 
   keyAccount() {
     const id = Number( Dom.get( "manage-key-account" ).value ) || null;
-    return this.people.find( ( user ) => user.id === id ) || null;
+    return this.accounts.find( ( user ) => user.id === id ) || null;
   },
 
   async refreshKeys() {

@@ -99,6 +99,18 @@ fix below, one app at a time as they come up.
 
 ## Rook (`~/WORKSPACE/PROJECTS/Games/Rook`)
 
+### 2026-11-22, fixed here: any admin may run accounts, so the portal's own admin works
+Manage project answered "forbidden (403)": every `/api/admin/users*` route had
+`use=[handlers.RequireOwner]`, so only the owner could manage accounts, and the
+portal works through a "ProjectPortal" admin account of its own. Those routes
+now use `RequireAccountAdmin` (`server/routes/admin_games.go`), which follows
+the template's ladder (`models.MaySuperActOn`): any admin runs players'
+accounts, nobody touches the owner's account, and only the owner touches
+another admin's. Still the owner's alone: game settings, everyone's API keys,
+key minting for accounts (`/api/admin/users/{id}/keys`), logs. Rook's own
+Admin screen is still shown to the owner only. Tests: `server/routes/account_admin_test.go`.
+Not committed or deployed yet.
+
 ### 2026-11-20, plan to paste: let a key make its own account a sign-in link
 Found when a portal user attached their own Rook key and Open failed. Rook was
 scaffolded from go-webserver at `145e4d48` and its login-link route is still

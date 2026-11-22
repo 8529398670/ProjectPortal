@@ -160,10 +160,11 @@ const Projects = {
       join.setAttribute( "aria-disabled" , "true" );
       join.title = I18n.get( "projects.not_ready" );
     }
+    const keyLabel = I18n.get( "projects.own_key_button" );
     const extra = Dom.el( "button" , {
       class: "btn btn-outline-secondary btn-sm ms-auto",
-      attrs: { type: "button" },
-      text: I18n.get( "projects.own_key_button" ),
+      attrs: { type: "button" , title: keyLabel , "aria-label": keyLabel },
+      children: [ Dom.el( "i" , { class: "bi bi-key" , attrs: { "aria-hidden": "true" } } ) ],
       on: { click: () => this.onOwnKey( project ) },
     } );
     return [ join , this.boardLink( project ) , this.githubLink( project ) , extra ].filter( Boolean );
