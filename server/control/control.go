@@ -231,6 +231,8 @@ func ( server *Server ) routes() ( handler http.Handler ) {
 	mux.HandleFunc( "GET /v1/api-keys" , server.handleListAPIKeys )
 	mux.HandleFunc( "POST /v1/api-keys" , server.handleCreateAPIKey )
 	mux.HandleFunc( "POST /v1/portal-connect" , server.handlePortalConnect )
+	mux.HandleFunc( "GET /v1/projects" , server.handleListProjects )
+	mux.HandleFunc( "POST /v1/projects/key" , server.handleSetProjectKey )
 	mux.HandleFunc( "POST /v1/api-keys/{id}/revoke" , server.handleRevokeAPIKey )
 	mux.HandleFunc( "POST /v1/api-keys/{id}/delete" , server.handleDeleteAPIKey )
 	mux.HandleFunc( "POST /v1/invite-links" , server.handleCreateInviteLink )

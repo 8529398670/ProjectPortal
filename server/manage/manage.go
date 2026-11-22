@@ -57,6 +57,8 @@ Usage:
   list-keys       [-user-id 3]       API keys, whose they are, when last used
   create-key      -user-id 3 -name "CI" [-role user] [-days 90]
   portal-connect  [-name ProjectPortal] [-days 365]   ProjectPortal's own account and admin key
+  list-projects                      the catalog: id, name, address, key status
+  set-project-key -project 3         a project's admin key, read from stdin
   revoke-key      -key-id abc123     kill one API key now, keep its record
   delete-key      -key-id abc123     kill one API key now and remove its record
   create-invite   -user-id 1 -label "Book club" [-uses 10] [-days 30]
@@ -222,6 +224,10 @@ func Run( arguments []string ) ( err error ) {
 		err = commandCreateKey( back , cfg , rest )
 	case "portal-connect":
 		err = commandPortalConnect( back , cfg , rest )
+	case "list-projects":
+		err = commandListProjects( back )
+	case "set-project-key":
+		err = commandSetProjectKey( back , cfg , rest )
 	case "revoke-key":
 		err = commandRevokeKey( back , rest )
 	case "delete-key":
