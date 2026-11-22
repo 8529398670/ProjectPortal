@@ -48,13 +48,14 @@ const Catalog = {
     if ( me.role !== "admin" ) return;
     this.me = me;
     Dom.show( Dom.get( "catalog-panel" ) , true );
+    Dom.show( Dom.get( "catalog-projects-panel" ) , true );
     this.addIcon = IconPicker.build( "project-icon" , IconPicker.fallback );
     Dom.get( "project-icon-picker" ).replaceChildren( this.addIcon.element );
     Dom.onSubmit( Dom.get( "add-project-form" ) , this.onAdd.bind( this ) );
     Pager.sortable( "catalog-table" , () => this.refresh() );
     Pager.search( "catalog-table" , "catalog-search" , () => this.refresh() );
     window.addEventListener( "nav" , () => {
-      if ( Nav.current() === "catalog" ) this.refresh();
+      if ( Nav.current() === "catalog-projects" ) this.refresh();
     } );
     await this.refresh();
   },

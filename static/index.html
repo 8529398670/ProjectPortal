@@ -68,6 +68,7 @@
           <div id="sidebar-admin" class="sidebar-group" hidden>
             <h3 class="sidebar-heading" data-i18n="nav.admin_heading"></h3>
             <a class="nav-link" href="/admin/catalog" data-nav="catalog"><i class="bi bi-collection" aria-hidden="true"></i><span data-i18n="nav.catalog"></span></a>
+            <a class="nav-link" href="/admin/projects" data-nav="catalog-projects"><i class="bi bi-table" aria-hidden="true"></i><span data-i18n="nav.catalog_projects"></span></a>
             <a class="nav-link" href="/admin/access" data-nav="access"><i class="bi bi-person-check" aria-hidden="true"></i><span data-i18n="nav.access"></span></a>
             <a class="nav-link" href="/admin/manage" data-nav="manage"><i class="bi bi-tools" aria-hidden="true"></i><span data-i18n="nav.manage"></span></a>
             <a class="nav-link" href="/admin/users" data-nav="users"><i class="bi bi-people" aria-hidden="true"></i><span data-i18n="nav.users"></span></a>
@@ -732,10 +733,15 @@
               </form>
             </div>
           </section>
+        </section>
+
+        <!-- Every catalog project as one full-width table; added on Catalog. See catalog.js. -->
+        <section class="view view-full" data-view="catalog-projects" data-path="/admin/projects" id="catalog-projects-panel" hidden>
+          <h2 class="view-title" data-i18n="catalog.list_heading"></h2>
+          <p class="view-description" data-i18n="catalog.list_description"></p>
 
           <section class="card">
             <div class="card-body">
-              <h3 class="card-title" data-i18n="catalog.list_heading"></h3>
               <div role="search">
                 <label for="catalog-search" class="visually-hidden" data-i18n="catalog.search_label"></label>
                 <input id="catalog-search" class="form-control" type="search" autocomplete="off"
