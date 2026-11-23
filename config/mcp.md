@@ -44,7 +44,6 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 | [`admin_order_catalog`](#admin_order_catalog) | [`POST /api/admin/projects/order`](api.md#post-apiadminprojectsorder) | admin keys | Order the catalog (admin) |
 | [`admin_project_access`](#admin_project_access) | [`GET /api/admin/projects/{project_id}/access`](api.md#get-apiadminprojectsproject_idaccess) | admin keys | Who may use a project (admin) |
 | [`admin_reissue_login`](#admin_reissue_login) | [`POST /api/admin/users/{user_id}/reissue-login`](api.md#post-apiadminusersuser_idreissue-login) | admin keys | A new login link for an account (admin) |
-| [`admin_remote_login_link`](#admin_remote_login_link) | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_idlogin-link) | admin keys | A login link for an account on a project (admin) |
 | [`admin_remove_project_member`](#admin_remove_project_member) | [`POST /api/admin/projects/{project_id}/members/{user_id}/remove`](api.md#post-apiadminprojectsproject_idmembersuser_idremove) | admin keys | Take someone off a project here (admin) |
 | [`admin_rename_invite_link`](#admin_rename_invite_link) | [`POST /api/admin/invite-links/{link_id}/rename`](api.md#post-apiadmininvite-linkslink_idrename) | admin keys | Rename an invite link (admin) |
 | [`admin_rename_user`](#admin_rename_user) | [`POST /api/admin/users/{user_id}/rename`](api.md#post-apiadminusersuser_idrename) | admin keys | Rename someone (admin) |
@@ -103,7 +102,7 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 
 ## admin_act_on_project_accounts
 
-For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it.
+For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it. Only the owner does it to an admin; nobody does it to the owner.
 
 |  |  |
 |---|---|
@@ -209,7 +208,7 @@ One link a group can join the project itself through: up to max_uses accounts, f
 
 ## admin_create_remote_user
 
-Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it. Answers login_url: hand it to the person it is for (it works once, for 15 minutes).
+Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it. An admin account takes a browser session: an API key gets 403 session_only. Answers login_url: hand it to the person it is for (it works once, for 15 minutes).
 
 |  |  |
 |---|---|
@@ -443,7 +442,7 @@ Put accounts under one person. People they already belong to are merged into it.
 
 ## admin_link_remote_user
 
-Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead.
+Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner.
 
 |  |  |
 |---|---|
@@ -675,26 +674,9 @@ For someone who lost their device or their link: a fresh login link for their ac
 | `max_uses` | integer or null | no | 0 to 1000 | Sign-ins the link allows: 1-1000, or 0 for unlimited. Default 1. |
 | `user_id` | integer | yes | at least 1 | The account's id, from GET /api/admin/users (admin_list_users over MCP). |
 
-## admin_remote_login_link
-
-A fresh login link for one account on the project. It works once, for 15 minutes. Answers login_url: hand it to the person it is for.
-
-|  |  |
-|---|---|
-| Route | [`POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link`](api.md#post-apiadminprojectsproject_idremote-usersremote_user_idlogin-link) |
-| Read only | no |
-| Destructive | no |
-
-**Arguments**
-
-| Field | Type | Required | Limits | Description |
-|---|---|---|---|---|
-| `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
-| `remote_user_id` | integer | yes | at least 1 | The account's id on the project, from admin_list_remote_users. |
-
 ## admin_remove_project_member
 
-Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.
+Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys. Only the owner takes another admin off; nobody takes the owner off.
 
 |  |  |
 |---|---|
@@ -1099,7 +1081,7 @@ The account stops working expires_in_days from now; 0 means never. Needs an app 
 
 ## admin_set_remote_role
 
-admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.
+admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed. Making someone admin takes a browser session: an API key gets 403 session_only.
 
 |  |  |
 |---|---|
@@ -1365,7 +1347,7 @@ favorite true keeps the project at the top of your list.
 
 ## join_project
 
-Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).
+Make yourself an account on a project you may use, named as you are here, and get a login link for it. An API key needs Sign-in links switched on for it (403 otherwise). 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said. Only works if this key was allowed to make sign-in links, on the API keys card. Answers login_url: give it to the person to open (it works once, for 15 minutes).
 
 |  |  |
 |---|---|
@@ -1467,7 +1449,7 @@ People with an active account, a page at a time: id and display name. Use the id
 
 ## open_project
 
-A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 424 when the project refused, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).
+A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. An API key needs Sign-in links switched on for it (403 otherwise). 409 when you are not on it yet (join it), 424 when the project refused, with what it said. Only works if this key was allowed to make sign-in links, on the API keys card. Answers login_url: give it to the person to open (it works once, for 15 minutes).
 
 |  |  |
 |---|---|

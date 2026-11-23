@@ -3218,7 +3218,7 @@ Replace the admin API key the portal uses on a project. It must be an admin key 
 
 Match someone to their account on a project
 
-Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead.
+Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner.
 
 |  |  |
 |---|---|
@@ -3250,7 +3250,7 @@ Say which account on the project is theirs. Opening the project then signs them 
 
 Take someone off a project here
 
-Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.
+Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys. Only the owner takes another admin off; nobody takes the owner off.
 
 |  |  |
 |---|---|
@@ -3410,7 +3410,7 @@ Runs POST /api/admin/projects/{project_id}/access/{user_id} once per item: items
 | POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/expiry`](#post-apiadminprojectsproject_idremote-usersremote_user_idexpiry) | Set when an account on a project expires | browser session or API key, admins |
 | GET | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys`](#get-apiadminprojectsproject_idremote-usersremote_user_idkeys) | An account's API keys on a project | browser session or API key, admins |
 | POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys`](#post-apiadminprojectsproject_idremote-usersremote_user_idkeys) | Make an API key on a project | browser session only, admins |
-| POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link`](#post-apiadminprojectsproject_idremote-usersremote_user_idlogin-link) | A login link for an account on a project | browser session or API key, admins |
+| POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link`](#post-apiadminprojectsproject_idremote-usersremote_user_idlogin-link) | A login link for an account on a project | browser session only, admins |
 | POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access`](#post-apiadminprojectsproject_idremote-usersremote_user_idrevoke-access) | Sign an account out everywhere on a project | browser session or API key, admins |
 | POST | [`/api/admin/projects/{project_id}/remote-users/{remote_user_id}/role`](#post-apiadminprojectsproject_idremote-usersremote_user_idrole) | Change an account's role on a project | browser session or API key, admins |
 | POST | [`/api/admin/users/{user_id}/project-accounts`](#post-apiadminusersuser_idproject-accounts) | Disable someone's accounts on every project | browser session or API key, admins |
@@ -3548,7 +3548,7 @@ The key stops working there now, and so does every key it made.
 
 Make an account on a project
 
-Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it.
+Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it. An admin account takes a browser session: an API key gets 403 session_only.
 
 |  |  |
 |---|---|
@@ -3757,12 +3757,11 @@ An API key for the account on the project, shown once. It always expires, its ro
 
 A login link for an account on a project
 
-A fresh login link for one account on the project. It works once, for 15 minutes.
+A fresh login link for one account on the project. It works once, for 15 minutes. Browser only: an API key gets 403 session_only.
 
 |  |  |
 |---|---|
-| Who may call | browser session or API key, admins |
-| MCP tool | [`admin_remote_login_link`](mcp.md#admin_remote_login_link) |
+| Who may call | browser session only, admins |
 | Errors | 400, 401, 403, 404, 409, 424, 429, 503 |
 
 **Parameters**
@@ -3820,7 +3819,7 @@ End every session, login link and API key the account has there. The account sta
 
 Change an account's role on a project
 
-admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.
+admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed. Making someone admin takes a browser session: an API key gets 403 session_only.
 
 |  |  |
 |---|---|
@@ -3852,7 +3851,7 @@ admin, user, or viewer (view only, on an app that has it). The project's owner c
 
 Disable someone's accounts on every project
 
-For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it.
+For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it. Only the owner does it to an admin; nobody does it to the owner.
 
 |  |  |
 |---|---|
@@ -4175,7 +4174,7 @@ favorite true keeps the project at the top of your list.
 
 Join a project
 
-Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said.
+Make yourself an account on a project you may use, named as you are here, and get a login link for it. An API key needs Sign-in links switched on for it (403 otherwise). 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said.
 
 |  |  |
 |---|---|
@@ -4236,7 +4235,7 @@ Take a project off your list. Your account on the project stays as it is; joinin
 
 Sign in to a project
 
-A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 424 when the project refused, with what it said.
+A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. An API key needs Sign-in links switched on for it (403 otherwise). 409 when you are not on it yet (join it), 424 when the project refused, with what it said.
 
 |  |  |
 |---|---|

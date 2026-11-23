@@ -6,10 +6,12 @@ import (
 
 	fiber "github.com/gofiber/fiber/v3"
 
+	apidoc "projectportal/server/apidoc"
 	logs "projectportal/server/logs"
 	models "projectportal/server/models"
 	portal "projectportal/server/portal"
 	remote "projectportal/server/remote"
+	security "projectportal/server/security"
 )
 
 // Manage project: running a catalog app's accounts, invite links and API keys
@@ -19,8 +21,11 @@ import (
 //
 // Minting an API key on another app is browser-only, like every route that
 // stores or makes a key here: a leaked portal key must not be able to leave
-// keys behind on other apps. Login links and invite links follow the
-// template's rule instead: an admin key may make them, as it may here.
+// keys behind on other apps. For the same reason a key may not make or
+// promote an admin account there (adminRoleRefusal), nor ask for a login link
+// for any account there (remoteLoginLink): either is a way into every app at
+// once that outlives revoking the key here. Invite links, and accounts below
+// admin, follow the template's rule: an admin key may make them.
 
 const (
 	remoteRoleAdmin  = "admin"
@@ -92,6 +97,25 @@ func ( handlers *Handlers ) roleAllowed( project *models.Project , role string )
 	return
 }
 
+// adminRoleRefusal keeps making or promoting an admin account on a project
+// to a browser session. An admin there can mint keys and sign in as anyone
+// below them, so a leaked key here would leave that behind on every app.
+func adminRoleRefusal( c fiber.Ctx , role string ) ( refused error ) {
+	if role != remoteRoleAdmin { return }
+	if actor := security.ActorFrom( c ); actor == nil || actor.ViaAPIKey() == false { return }
+	refused = refuse( fiber.StatusForbidden , "only a browser session makes an admin account on a project, or makes someone one" ).coded( apidoc.CodeSessionOnly )
+	return
+}
+
+// ladderOn is the owner rule here (models.MayActOn) for an action on what
+// someone has on the projects: their account there, their link to it, their
+// own key. Nobody does it to the owner, and only the owner to another admin,
+// the same as to their account here. what follows "cannot".
+func ( handlers *Handlers ) ladderOn( c fiber.Ctx , user_id uint64 , what string ) ( refused error ) {
+	if found := actOnRefusal( models.MayActOn( handlers.Store , security.UserFrom( c ).ID , user_id ) , what ); found != nil { refused = found }
+	return
+}
+
 // expiryFrom is days from now as a time, nil for 0 (never).
 func expiryFrom( days int ) ( expires_at *time.Time ) {
 	if days <= 0 { return }
@@ -126,7 +150,8 @@ type createdRemoteUserReply struct {
 // @route("POST /api/admin/projects/{project_id}/remote-users", summary="Make an account on a project",
 //     tag="Manage project", role=ADMIN, status=201, errors=(404, 409, 424),
 //     description="Make an account on the project itself, with a role and an optional expiry, and get "
-//         "its login link. With user_id, that person here is put on the project with it.",
+//         "its login link. With user_id, that person here is put on the project with it. An admin account "
+//         "takes a browser session: an API key gets 403 session_only.",
 //     mcp="admin_create_remote_user",
 //     mcp_note="Answers login_url: hand it to the person it is for (it works once, for 15 minutes).",
 // )
@@ -135,6 +160,7 @@ func ( handlers *Handlers ) createRemoteUser( c fiber.Ctx , in *createRemoteUser
 	if refused != nil { return nil , refused }
 	role := strings.TrimSpace( in.Role )
 	if role == "" { role = remoteRoleUser }
+	if refused = adminRoleRefusal( c , role ); refused != nil { return nil , refused }
 	if refused = handlers.roleAllowed( project , role ); refused != nil { return nil , refused }
 	expires_at := expiryFrom( in.ExpiresInDays )
 	if expires_at != nil {
@@ -173,13 +199,13 @@ func ( handlers *Handlers ) createRemoteUser( c fiber.Ctx , in *createRemoteUser
 }
 
 // remoteLoginLink is a fresh login link for any account the portal's key may
-// make one for, to hand over by hand.
+// make one for, to hand over by hand. Browser only: through a key it would be
+// signing in as anyone below admin on every app, from wherever the key went.
 //
 // @route("POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link", summary="A login link for an account on a project",
-//     tag="Manage project", role=ADMIN, errors=(404, 409, 424),
-//     description="A fresh login link for one account on the project. It works once, for 15 minutes.",
-//     mcp="admin_remote_login_link",
-//     mcp_note="Answers login_url: hand it to the person it is for.",
+//     tag="Manage project", role=ADMIN, access=SESSION_ONLY, errors=(404, 409, 424),
+//     description="A fresh login link for one account on the project. It works once, for 15 minutes. "
+//         "Browser only: an API key gets 403 session_only.",
 // )
 func ( handlers *Handlers ) remoteLoginLink( c fiber.Ctx , in *remoteUserPath ) ( reply *projectLinkReply , err error ) {
 	project , key , refused := handlers.managedProject( in.ProjectID )
@@ -202,10 +228,12 @@ type remoteRoleRequest struct {
 //
 // @route("POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/role", summary="Change an account's role on a project",
 //     tag="Manage project", role=ADMIN, errors=(400, 404, 409, 424),
-//     description="admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.",
+//     description="admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed. "
+//         "Making someone admin takes a browser session: an API key gets 403 session_only.",
 //     mcp="admin_set_remote_role",
 // )
 func ( handlers *Handlers ) setRemoteRole( c fiber.Ctx , in *remoteRoleRequest ) ( reply *okReply , err error ) {
+	if refused := adminRoleRefusal( c , in.Role ); refused != nil { return nil , refused }
 	project , key , refused := handlers.managedProject( in.ProjectID )
 	if refused != nil { return nil , refused }
 	if refused = handlers.roleAllowed( project , in.Role ); refused != nil { return nil , refused }
@@ -558,7 +586,7 @@ type projectAccountsReply struct {
 //     tag="Manage project", role=ADMIN, errors=(404,),
 //     description="For every project they are on, disable their account there (on_project disable) or end "
 //         "its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers "
-//         "how each project took it.",
+//         "how each project took it. Only the owner does it to an admin; nobody does it to the owner.",
 //     mcp="admin_act_on_project_accounts", destructive=True,
 // )
 func ( handlers *Handlers ) actOnProjectAccounts( c fiber.Ctx , in *projectAccountsRequest ) ( reply *projectAccountsReply , err error ) {
@@ -566,6 +594,7 @@ func ( handlers *Handlers ) actOnProjectAccounts( c fiber.Ctx , in *projectAccou
 		err = refuse( fiber.StatusNotFound , "no such user" )
 		return
 	}
+	if refused := handlers.ladderOn( c , in.UserID , "act on the project accounts of" ); refused != nil { return nil , refused }
 	if in.OnProject != onProjectDisable && in.OnProject != onProjectRevoke {
 		err = refuse( fiber.StatusBadRequest , "on_project must be disable or revoke" )
 		return

@@ -485,6 +485,9 @@ func ( handlers *Handlers ) setAccess( c fiber.Ctx , in *setAccessRequest ) ( re
 	}
 	if in.Allowed == false {
 		if membership , get_err := models.GetMembership( handlers.Store , in.UserID , in.ProjectID ); get_err == nil && membership.Active() {
+			if in.OnProject != "" && in.OnProject != onProjectKeep {
+				if refused := handlers.ladderOn( c , in.UserID , "act on the project accounts of" ); refused != nil { return nil , refused }
+			}
 			if err = handlers.actOnRemoteAccount( membership , in.OnProject ); err != nil { return }
 		}
 	}
@@ -622,7 +625,8 @@ func ( handlers *Handlers ) remoteOwners( project_id uint64 ) ( owners map[uint6
 //     tag="Catalog", role=ADMIN, errors=(404, 409, 424),
 //     description="Say which account on the project is theirs. Opening the project then signs them into "
 //         "it. The project's owner, and its admins unless the portal's key is the owner's, cannot be "
-//         "signed in this way: they attach their own key instead.",
+//         "signed in this way: they attach their own key instead. An account already someone else's here "
+//         "is 409. Only the owner links another admin; nobody links the owner.",
 //     mcp="admin_link_remote_user",
 // )
 func ( handlers *Handlers ) linkRemote( c fiber.Ctx , in *linkRemoteRequest ) ( reply *okReply , err error ) {
@@ -632,10 +636,21 @@ func ( handlers *Handlers ) linkRemote( c fiber.Ctx , in *linkRemoteRequest ) ( 
 		err = refuse( fiber.StatusNotFound , "no such user" )
 		return
 	}
+	// Where someone's Open lands is theirs: only the owner points another
+	// admin's, and nobody points the owner's.
+	if refused := handlers.ladderOn( c , in.UserID , "link a project account for" ); refused != nil { return nil , refused }
 	key , refused := handlers.adminKeyOf( project )
 	if refused != nil { return nil , refused }
 	found , err := handlers.findRemoteUser( project , key , in.RemoteUserID )
 	if err != nil { return }
+	// One account there is one person's: linking a second person to it
+	// would sign them in as the first.
+	owners , err := handlers.remoteOwners( project.ID )
+	if err != nil { return }
+	if holder := owners[ found.ID ]; holder != nil && holder.ID != in.UserID {
+		err = refuse( fiber.StatusConflict , "that account is already " + holder.DisplayName + "'s: take them off the project first" )
+		return
+	}
 	if found.Owner {
 		err = refuse( fiber.StatusConflict , "that is the project's owner: nobody can make them a link from outside. They attach their own key instead" )
 		return
@@ -687,7 +702,8 @@ type removeMemberRequest struct {
 // @route("POST /api/admin/projects/{project_id}/members/{user_id}/remove", summary="Take someone off a project here",
 //     tag="Catalog", role=ADMIN, errors=(404,),
 //     description="Forget someone's account on the project, and their own key for it. on_project says "
-//         "what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.",
+//         "what happens to the account there: keep (default), disable, or revoke its sessions, links and keys. "
+//         "Only the owner takes another admin off; nobody takes the owner off.",
 //     mcp="admin_remove_project_member", destructive=True,
 // )
 func ( handlers *Handlers ) removeMember( c fiber.Ctx , in *removeMemberRequest ) ( reply *okReply , err error ) {
@@ -696,6 +712,7 @@ func ( handlers *Handlers ) removeMember( c fiber.Ctx , in *removeMemberRequest 
 		err = refuse( fiber.StatusNotFound , "they are not on this project" )
 		return
 	}
+	if refused := handlers.ladderOn( c , in.UserID , "take off a project" ); refused != nil { return nil , refused }
 	if err = handlers.actOnRemoteAccount( membership , in.OnProject ); err != nil { return }
 	if err = models.RemoveMembership( handlers.Store , in.UserID , in.ProjectID ); err != nil { return }
 	handlers.audit( c , logs.KindAdmin , "project member removed" , fiber.Map{ "project_id": in.ProjectID , "user_id": in.UserID , "on_project": in.OnProject } )

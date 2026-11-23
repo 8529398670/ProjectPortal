@@ -391,14 +391,14 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.revokeRemoteKey , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/link/{user_id}" , apidoc.Op{
 		Summary: "Match someone to their account on a project",
-		Description: "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead.",
+		Description: "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner.",
 		Tag: "Catalog",
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.linkRemote , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/members/{user_id}/remove" , apidoc.Op{
 		Summary: "Take someone off a project here",
-		Description: "Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.",
+		Description: "Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys. Only the owner takes another admin off; nobody takes the owner off.",
 		Tag: "Catalog",
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 },
@@ -412,7 +412,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.remoteUsers , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users" , apidoc.Op{
 		Summary: "Make an account on a project",
-		Description: "Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it.",
+		Description: "Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it. An admin account takes a browser session: an API key gets 403 session_only.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
 		Status: 201,
@@ -457,11 +457,12 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.mintRemoteKey , handlers.Guard.RequireAdmin , handlers.Guard.RequireSession )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link" , apidoc.Op{
 		Summary: "A login link for an account on a project",
-		Description: "A fresh login link for one account on the project. It works once, for 15 minutes.",
+		Description: "A fresh login link for one account on the project. It works once, for 15 minutes. Browser only: an API key gets 403 session_only.",
 		Tag: "Manage project",
+		Access: apidoc.SessionOnly,
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
-	} , handlers.remoteLoginLink , handlers.Guard.RequireAdmin )
+	} , handlers.remoteLoginLink , handlers.Guard.RequireAdmin , handlers.Guard.RequireSession )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/revoke-access" , apidoc.Op{
 		Summary: "Sign an account out everywhere on a project",
 		Description: "End every session, login link and API key the account has there. The account stays enabled; a new login link signs it back in.",
@@ -471,7 +472,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.revokeRemoteAccess , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/role" , apidoc.Op{
 		Summary: "Change an account's role on a project",
-		Description: "admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.",
+		Description: "admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed. Making someone admin takes a browser session: an API key gets 403 session_only.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
@@ -570,7 +571,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.mintKeyForUser , handlers.featureGuards()[ "api_keys" ] , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/users/{user_id}/project-accounts" , apidoc.Op{
 		Summary: "Disable someone's accounts on every project",
-		Description: "For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it.",
+		Description: "For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it. Only the owner does it to an admin; nobody does it to the owner.",
 		Tag: "Manage project",
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 },
@@ -1093,7 +1094,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.favoriteProject , handlers.Guard.RequireLogin )
 	apidoc.Mount( app , "POST" , "/api/projects/{project_id}/join" , apidoc.Op{
 		Summary: "Join a project",
-		Description: "Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said.",
+		Description: "Make yourself an account on a project you may use, named as you are here, and get a login link for it. An API key needs Sign-in links switched on for it (403 otherwise). 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said.",
 		Tag: "Projects",
 		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.joinProject , handlers.Guard.RequireLogin )
@@ -1105,7 +1106,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.leaveProject , handlers.Guard.RequireLogin )
 	apidoc.Mount( app , "POST" , "/api/projects/{project_id}/open" , apidoc.Op{
 		Summary: "Sign in to a project",
-		Description: "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 424 when the project refused, with what it said.",
+		Description: "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. An API key needs Sign-in links switched on for it (403 otherwise). 409 when you are not on it yet (join it), 424 when the project refused, with what it said.",
 		Tag: "Projects",
 		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.openProject , handlers.Guard.RequireLogin )
@@ -1179,7 +1180,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/admin/users/{user_id}/project-accounts" , handlers.actOnProjectAccounts , mcp.Tool{
 		Name: "admin_act_on_project_accounts",
 		Title: "Disable someone's accounts on every project (admin)",
-		Description: "For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it.",
+		Description: "For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it. Only the owner does it to an admin; nobody does it to the owner.",
 		Destructive: true,
 		AdminOnly: true,
 	} , nil ) )
@@ -1219,7 +1220,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/remote-users" , handlers.createRemoteUser , mcp.Tool{
 		Name: "admin_create_remote_user",
 		Title: "Make an account on a project (admin)",
-		Description: "Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it. Answers login_url: hand it to the person it is for (it works once, for 15 minutes).",
+		Description: "Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it. An admin account takes a browser session: an API key gets 403 session_only. Answers login_url: hand it to the person it is for (it works once, for 15 minutes).",
 		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/users" , handlers.createUser , mcp.Tool{
@@ -1306,7 +1307,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/link/{user_id}" , handlers.linkRemote , mcp.Tool{
 		Name: "admin_link_remote_user",
 		Title: "Match someone to their account on a project (admin)",
-		Description: "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead.",
+		Description: "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner.",
 		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForRoute( "GET /api/admin/projects" , handlers.listCatalog , mcp.Tool{
@@ -1391,16 +1392,10 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		Description: "For someone who lost their device or their link: a fresh login link for their account. Answers with login_url (open it to sign in; it works once unless max_uses says otherwise), expires_at and max_uses. Any older link the account could still use stops working; its signed-in devices stay signed in. Revoking or deleting this API key voids the link while it is unused, and signs out every device it signed in.",
 		AdminOnly: true,
 	} , withLoginLinkURL ) )
-	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link" , handlers.remoteLoginLink , mcp.Tool{
-		Name: "admin_remote_login_link",
-		Title: "A login link for an account on a project (admin)",
-		Description: "A fresh login link for one account on the project. It works once, for 15 minutes. Answers login_url: hand it to the person it is for.",
-		AdminOnly: true,
-	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/members/{user_id}/remove" , handlers.removeMember , mcp.Tool{
 		Name: "admin_remove_project_member",
 		Title: "Take someone off a project here (admin)",
-		Description: "Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.",
+		Description: "Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys. Only the owner takes another admin off; nobody takes the owner off.",
 		Destructive: true,
 		AdminOnly: true,
 	} , nil ) )
@@ -1558,7 +1553,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/remote-users/{remote_user_id}/role" , handlers.setRemoteRole , mcp.Tool{
 		Name: "admin_set_remote_role",
 		Title: "Change an account's role on a project (admin)",
-		Description: "admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.",
+		Description: "admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed. Making someone admin takes a browser session: an API key gets 403 session_only.",
 		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/theme-defaults" , handlers.setThemeDefaults , mcp.Tool{
@@ -1642,7 +1637,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/projects/{project_id}/join" , handlers.joinProject , mcp.Tool{
 		Name: "join_project",
 		Title: "Join a project",
-		Description: "Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
+		Description: "Make yourself an account on a project you may use, named as you are here, and get a login link for it. An API key needs Sign-in links switched on for it (403 otherwise). 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said. Only works if this key was allowed to make sign-in links, on the API keys card. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/account/sessions/{session_id}/label" , handlers.labelMySession , mcp.Tool{
 		Name: "label_my_session",
@@ -1676,7 +1671,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/projects/{project_id}/open" , handlers.openProject , mcp.Tool{
 		Name: "open_project",
 		Title: "Sign in to a project",
-		Description: "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 424 when the project refused, with what it said. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
+		Description: "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. An API key needs Sign-in links switched on for it (403 otherwise). 409 when you are not on it yet (join it), 424 when the project refused, with what it said. Only works if this key was allowed to make sign-in links, on the API keys card. Answers login_url: give it to the person to open (it works once, for 15 minutes).",
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/projects/{project_id}/own-key/remove" , handlers.removeOwnKey , mcp.Tool{
 		Name: "remove_own_project_key",

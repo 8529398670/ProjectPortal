@@ -7356,7 +7356,7 @@
     },
     "/api/admin/projects/{project_id}/link/{user_id}": {
       "post": {
-        "description": "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead.",
+        "description": "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner.",
         "operationId": "post_api_admin_projects_project_id_link_user_id",
         "parameters": [
           {
@@ -7466,7 +7466,7 @@
     },
     "/api/admin/projects/{project_id}/members/{user_id}/remove": {
       "post": {
-        "description": "Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys.",
+        "description": "Forget someone's account on the project, and their own key for it. on_project says what happens to the account there: keep (default), disable, or revoke its sessions, links and keys. Only the owner takes another admin off; nobody takes the owner off.",
         "operationId": "post_api_admin_projects_project_id_members_user_id_remove",
         "parameters": [
           {
@@ -7676,7 +7676,7 @@
         "x-required-role": "admin"
       },
       "post": {
-        "description": "Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it.",
+        "description": "Make an account on the project itself, with a role and an optional expiry, and get its login link. With user_id, that person here is put on the project with it. An admin account takes a browser session: an API key gets 403 session_only.",
         "operationId": "post_api_admin_projects_project_id_remote_users",
         "parameters": [
           {
@@ -8437,7 +8437,7 @@
     },
     "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/login-link": {
       "post": {
-        "description": "A fresh login link for one account on the project. It works once, for 15 minutes.",
+        "description": "A fresh login link for one account on the project. It works once, for 15 minutes. Browser only: an API key gets 403 session_only.",
         "operationId": "post_api_admin_projects_project_id_remote_users_remote_user_id_login_link",
         "parameters": [
           {
@@ -8530,9 +8530,6 @@
         "security": [
           {
             "sessionCookie": []
-          },
-          {
-            "apiKey": []
           }
         ],
         "summary": "A login link for an account on a project",
@@ -8646,7 +8643,7 @@
     },
     "/api/admin/projects/{project_id}/remote-users/{remote_user_id}/role": {
       "post": {
-        "description": "admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed.",
+        "description": "admin, user, or viewer (view only, on an app that has it). The project's owner cannot be changed. Making someone admin takes a browser session: an API key gets 403 session_only.",
         "operationId": "post_api_admin_projects_project_id_remote_users_remote_user_id_role",
         "parameters": [
           {
@@ -9949,7 +9946,7 @@
     },
     "/api/admin/users/{user_id}/project-accounts": {
       "post": {
-        "description": "For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it.",
+        "description": "For every project they are on, disable their account there (on_project disable) or end its sessions, links and keys (revoke). Use it before disabling or deleting them here. Answers how each project took it. Only the owner does it to an admin; nobody does it to the owner.",
         "operationId": "post_api_admin_users_user_id_project_accounts",
         "parameters": [
           {
@@ -15281,7 +15278,7 @@
     },
     "/api/projects/{project_id}/join": {
       "post": {
-        "description": "Make yourself an account on a project you may use, named as you are here, and get a login link for it. 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said.",
+        "description": "Make yourself an account on a project you may use, named as you are here, and get a login link for it. An API key needs Sign-in links switched on for it (403 otherwise). 409 when you are already on it or it is not set up yet; 424 when the project refused or did not answer, with what it said.",
         "operationId": "post_api_projects_project_id_join",
         "parameters": [
           {
@@ -15465,7 +15462,7 @@
     },
     "/api/projects/{project_id}/open": {
       "post": {
-        "description": "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. 409 when you are not on it yet (join it), 424 when the project refused, with what it said.",
+        "description": "A fresh login link for your account on a project you are on: with your own key when you attached one, otherwise made by the portal's admin key there. An API key needs Sign-in links switched on for it (403 otherwise). 409 when you are not on it yet (join it), 424 when the project refused, with what it said.",
         "operationId": "post_api_projects_project_id_open",
         "parameters": [
           {

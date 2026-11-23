@@ -186,12 +186,15 @@ type projectLinkReply struct {
 // @route("POST /api/projects/{project_id}/join", summary="Join a project",
 //     tag="Projects", errors=(404, 409, 424),
 //     description="Make yourself an account on a project you may use, named as you are here, and get a "
-//         "login link for it. 409 when you are already on it or it is not set up yet; 424 when the "
-//         "project refused or did not answer, with what it said.",
-//     mcp_note="Answers login_url: give it to the person to open (it works once, for 15 minutes).",
+//         "login link for it. An API key needs Sign-in links switched on for it (403 otherwise). 409 when "
+//         "you are already on it or it is not set up yet; 424 when the project refused or did not answer, "
+//         "with what it said.",
+//     mcp_note="Only works if this key was allowed to make sign-in links, on the API keys card. Answers "
+//         "login_url: give it to the person to open (it works once, for 15 minutes).",
 //     mcp="join_project",
 // )
 func ( handlers *Handlers ) joinProject( c fiber.Ctx , in *projectIDPath ) ( reply *projectLinkReply , err error ) {
+	if refused := keySignInRefusal( c ); refused != nil { return nil , refused }
 	project , refused := handlers.visibleProject( c , in.ProjectID )
 	if refused != nil { return nil , refused }
 	user := security.UserFrom( c )
@@ -244,18 +247,33 @@ func ( handlers *Handlers ) joinAs( c fiber.Ctx , project *models.Project , user
 	return
 }
 
+// keySignInRefusal keeps Join and Open to a browser session, or to a key its
+// account let make sign-in links (POST /api/keys/{key_id}/sign-in), the rule
+// /api/account/login-link keeps here. Each answers a login link for the
+// caller's account on a project, so any other key -- even one narrowed to a
+// user -- would be a sign-in on every app its account is on.
+func keySignInRefusal( c fiber.Ctx ) ( refused *refusal ) {
+	actor := security.ActorFrom( c )
+	if actor == nil || actor.ViaAPIKey() == false || actor.APIKey.MaySignIn { return }
+	refused = refuse( fiber.StatusForbidden , "this key may not make sign-in links: turn that on for it on the API keys card" )
+	return
+}
+
 // openProject is the reason the portal exists: a fresh way into a project
 // you are on, whatever happened to your cookie there.
 //
 // @route("POST /api/projects/{project_id}/open", summary="Sign in to a project",
 //     tag="Projects", errors=(404, 409, 424),
 //     description="A fresh login link for your account on a project you are on: with your own key when "
-//         "you attached one, otherwise made by the portal's admin key there. 409 when you are not on it "
-//         "yet (join it), 424 when the project refused, with what it said.",
-//     mcp_note="Answers login_url: give it to the person to open (it works once, for 15 minutes).",
+//         "you attached one, otherwise made by the portal's admin key there. An API key needs Sign-in links "
+//         "switched on for it (403 otherwise). 409 when you are not on it yet (join it), 424 when the "
+//         "project refused, with what it said.",
+//     mcp_note="Only works if this key was allowed to make sign-in links, on the API keys card. Answers "
+//         "login_url: give it to the person to open (it works once, for 15 minutes).",
 //     mcp="open_project",
 // )
 func ( handlers *Handlers ) openProject( c fiber.Ctx , in *projectIDPath ) ( reply *projectLinkReply , err error ) {
+	if refused := keySignInRefusal( c ); refused != nil { return nil , refused }
 	project , refused := handlers.visibleProject( c , in.ProjectID )
 	if refused != nil { return nil , refused }
 	user := security.UserFrom( c )
