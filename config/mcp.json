@@ -246,6 +246,72 @@
         "destructiveHint": false,
         "openWorldHint": false,
         "readOnlyHint": false,
+        "title": "Make a person a portal account (admin)"
+      },
+      "description": "For someone from before the portal: make them an account here, put it under the person, and make each of their app accounts its own (as matching would), so Open signs them into the accounts they have. Answers with user_id and its first login link. A person who already has an account here is 409: link that one instead. Answers with login_url (open it to sign in; it works once unless max_uses says otherwise).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "account_expires_at": {
+            "description": "When the account stops working (RFC 3339). Left out: never.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "description": "The account's name here. Left out: the person's name.",
+            "maxLength": 80,
+            "type": "string"
+          },
+          "expires_in_minutes": {
+            "description": "0 never expires. Default auth.login_token_ttl_seconds for a link that works once, auth.multi_use_login_token_ttl_seconds otherwise.",
+            "maximum": 525600,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "max_uses": {
+            "description": "Sign-ins the link allows: 1-1000, or 0 for unlimited. Default 1.",
+            "maximum": 1000,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "person_id": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "admin",
+              "user",
+              "viewer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "role"
+        ],
+        "type": "object"
+      },
+      "name": "admin_create_person_portal_user",
+      "route": "POST /api/admin/people/{person_id}/portal-user",
+      "title": "Make a person a portal account (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
         "title": "Make an invite link on a project (admin)"
       },
       "description": "One link a group can join the project itself through: up to max_uses accounts, for days days. role viewer makes them view only, on an app that has it. Answers join_url: hand it out; it is shown only once.",
@@ -807,7 +873,7 @@
         "readOnlyHint": false,
         "title": "Link accounts to one person (admin)"
       },
-      "description": "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.",
+      "description": "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody. When the person then has one account here, their app accounts become its own (memberships_added), as matching would.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

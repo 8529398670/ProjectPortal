@@ -3925,6 +3925,7 @@ For every project they are on, disable their account there (on_project disable) 
 | POST | [`/api/admin/people/sync`](#post-apiadminpeoplesync) | Refresh people now | browser session or API key, admins |
 | POST | [`/api/admin/people/unlink`](#post-apiadminpeopleunlink) | Take an account off its person | browser session or API key, admins |
 | POST | [`/api/admin/people/{person_id}`](#post-apiadminpeopleperson_id) | Rename a person | browser session or API key, admins |
+| POST | [`/api/admin/people/{person_id}/portal-user`](#post-apiadminpeopleperson_idportal-user) | Make a person a portal account | browser session or API key, admins |
 
 ### GET /api/admin/people
 
@@ -3982,7 +3983,7 @@ The accounts in a are not the person of those in b: that match is never suggeste
 
 Link accounts to one person
 
-Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.
+Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody. When the person then has one account here, their app accounts become its own (memberships_added), as matching would.
 
 |  |  |
 |---|---|
@@ -4004,6 +4005,7 @@ Put accounts under one person. People they already belong to are merged into it.
 
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
+| `memberships_added` | integer | no |  | How many of the person's app accounts became their portal account's, so Open signs into them (when they have one account here). |
 | `person` | object or null | yes |  |  |
 | `person.created_at` | string (date-time) | yes |  |  |
 | `person.display_name` | string | yes |  |  |
@@ -4035,6 +4037,7 @@ Every account of from goes to into, with its notes, and from is deleted.
 
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
+| `memberships_added` | integer | no |  | How many of the person's app accounts became their portal account's, so Open signs into them (when they have one account here). |
 | `person` | object or null | yes |  |  |
 | `person.created_at` | string (date-time) | yes |  |  |
 | `person.display_name` | string | yes |  |  |
@@ -4122,12 +4125,60 @@ The name and notes the portal keeps for a person. Their accounts keep their own 
 
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
+| `memberships_added` | integer | no |  | How many of the person's app accounts became their portal account's, so Open signs into them (when they have one account here). |
 | `person` | object or null | yes |  |  |
 | `person.created_at` | string (date-time) | yes |  |  |
 | `person.display_name` | string | yes |  |  |
 | `person.id` | integer | yes |  |  |
 | `person.notes` | string | no |  |  |
 | `person.updated_at` | string (date-time) | yes |  |  |
+
+### POST /api/admin/people/{person_id}/portal-user
+
+Make a person a portal account
+
+For someone from before the portal: make them an account here, put it under the person, and make each of their app accounts its own (as matching would), so Open signs them into the accounts they have. Answers with user_id and its first login link. A person who already has an account here is 409: link that one instead.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_create_person_portal_user`](mcp.md#admin_create_person_portal_user) |
+| Errors | 400, 401, 403, 404, 409, 429, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `person_id` | path | integer | yes | at least 1 |  |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `account_expires_at` | string (date-time) or null | no |  | When the account stops working (RFC 3339). Left out: never. |
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `display_name` | string | no | at most 80 characters | The account's name here. Left out: the person's name. |
+| `expires_in_minutes` | integer or null | no | 0 to 525600 | 0 never expires. Default auth.login_token_ttl_seconds for a link that works once, auth.multi_use_login_token_ttl_seconds otherwise. |
+| `max_uses` | integer or null | no | 0 to 1000 | Sign-ins the link allows: 1-1000, or 0 for unlimited. Default 1. |
+| `role` | string | yes | one of `admin`, `user`, `viewer` |  |
+
+**Reply 201**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `expires_at` | string (date-time) or null | yes |  | null when it never expires. |
+| `expires_in_seconds` | integer | yes |  | 0 when it never expires. |
+| `login_path` | string | yes |  | Path of the login link. A credential: treat it like a password. |
+| `max_uses` | integer | yes |  | 0 when unlimited. |
+| `memberships_added` | integer | yes |  | How many of the person's app accounts became this account's, so Open signs into them. |
+| `person` | object or null | yes |  |  |
+| `person.created_at` | string (date-time) | yes |  |  |
+| `person.display_name` | string | yes |  |  |
+| `person.id` | integer | yes |  |  |
+| `person.notes` | string | no |  |  |
+| `person.updated_at` | string (date-time) | yes |  |  |
+| `unlimited` | boolean | yes |  |  |
+| `user_id` | integer | yes |  |  |
 
 ## Projects
 

@@ -166,6 +166,8 @@ const People = {
       Dom.el( "td" , { children: [ this.devices( person.accounts ) ] } ),
       Dom.el( "td" , { children: [ Dom.rowActions( person.display_name , [
         this.button( "people.rename_button" , () => this.onRename( person ) ),
+        person.accounts.some( ( account ) => account.project_id === 0 ) ? null
+          : this.button( "people.portal_user_button" , () => this.onPortalUser( person ) , "btn-outline-primary" ),
         data.people.length > 1 ? this.button( "people.merge_button" , () => this.onMerge( person ) ) : null,
       ] ) ] } ),
     ] } ) ) );
@@ -203,7 +205,45 @@ const People = {
 
   onLink( accounts , personId ) {
     return this.act( () => Api.linkPeople( accounts.map( ( account ) => this.ref( account ) ) , personId ) ,
-      ( reply ) => this.words( "people.linked" , { name: reply.person.display_name } ) );
+      ( reply ) => this.words( "people.linked" , { name: reply.person.display_name } ) + this.added( reply ) );
+  },
+
+  // " 2 app accounts are now theirs to Open." when linking gave their portal
+  // account memberships, nothing otherwise.
+  added( reply ) {
+    const count = reply.memberships_added || 0;
+    if ( !count ) return "";
+    return " " + ( count === 1 ? I18n.get( "people.memberships_one" ) : this.words( "people.memberships_count" , { count: count } ) );
+  },
+
+  // Backfill: someone from before the portal gets an account here, under
+  // this person, with their app accounts as its own, and a login link.
+  async onPortalUser( person ) {
+    const roles = [ "user" , "viewer" , "admin" ];
+    const created = await Dom.form( {
+      title: this.words( "people.portal_user_heading" , { name: person.display_name } ),
+      submit: I18n.get( "people.portal_user_submit" ),
+      fields: [
+        { name: "name" , label: I18n.get( "people.portal_user_name_label" ) , help: I18n.get( "people.portal_user_help" ) ,
+          value: person.display_name , required: true , maxLength: 80 },
+        { name: "role" , type: "select" , label: I18n.get( "people.portal_user_role_label" ) ,
+          options: roles.map( ( role ) => ( { value: role , label: I18n.get( "people.role_" + role ) } ) ) , value: "user" },
+        ...LoginLinks.fields(),
+      ],
+      save: ( values ) => Api.createPersonPortalUser( person.id , Object.assign(
+        { display_name: values.name , role: values.role } , LoginLinks.body( values.uses , values.expires ) ) ),
+    } );
+    if ( created === null ) return;
+    await this.refresh();
+    const name = created.person ? created.person.display_name : person.display_name;
+    await Dom.handOver( {
+      show: true,
+      value: window.location.origin + created.login_path,
+      title: I18n.get( "admin.link_for" ).replace( "{name}" , () => name ),
+      label: I18n.get( "people.portal_user_link_label" ),
+      help: I18n.get( "admin.link_notice" ).replace( "{summary}" , () => LoginLinks.summary( created ) ) + this.added( created ),
+    } );
+    if ( App.currentUser.role === "admin" ) await App.refreshUsers();
   },
 
   onConfirm( suggestion ) {
@@ -240,7 +280,7 @@ const People = {
       save: ( values ) => Api.mergePeople( Number( values.into ) , person.id ),
     } );
     if ( saved === null ) return;
-    Dom.toast( I18n.get( "people.merged" ) , "ok" );
+    Dom.toast( I18n.get( "people.merged" ) + this.added( saved ) , "ok" );
     await this.refresh();
   },
 
@@ -252,6 +292,8 @@ const People = {
         options: people.map( ( person ) => ( { value: String( person.id ) , label: person.display_name } ) ) , value: String( people[ 0 ].id ) } ],
       save: ( values ) => Api.linkPeople( [ this.ref( account ) ] , Number( values.person ) ),
     } );
-    if ( saved !== null ) await this.refresh();
+    if ( saved === null ) return;
+    if ( this.added( saved ) ) Dom.toast( this.added( saved ).trim() , "ok" );
+    await this.refresh();
   },
 };

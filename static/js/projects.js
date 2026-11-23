@@ -125,7 +125,7 @@ const Projects = {
         Dom.el( "div" , { class: "small text-body-secondary text-break" , text: project.base_url.replace( /^https?:\/\// , "" ) } ),
       ] } ),
       this.health( project ),
-    ] } );
+    ].filter( Boolean ) } );
 
     const body = [ title ];
     if ( badges.length ) body.push( Dom.el( "div" , { class: "d-flex flex-wrap gap-1 mt-2" , children: badges } ) );

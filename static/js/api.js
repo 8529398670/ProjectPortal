@@ -202,6 +202,7 @@ const Api = {
   dismissPeople( a , b )         { return this.post( "/api/admin/people/dismiss" , { a: a , b: b } ); },
   mergePeople( into , from )     { return this.post( "/api/admin/people/merge" , { into: into , from: from } ); },
   editPerson( id , name , notes ) { return this.post( "/api/admin/people/" + id , { display_name: name , notes: notes } ); },
+  createPersonPortalUser( id , body ) { return this.post( "/api/admin/people/" + id + "/portal-user" , body ); },
   remoteUsers( id , q , offset ) { return this.request( "/api/admin/projects/" + id + "/remote-users" + this.query( { q: q , offset: offset } ) ); },
   linkRemoteUser( id , userId , remoteUserId ) { return this.post( "/api/admin/projects/" + id + "/link/" + userId , { remote_user_id: remoteUserId } ); },
   removeProjectMember( id , userId , onProject ) {

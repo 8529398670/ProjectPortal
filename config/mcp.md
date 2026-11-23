@@ -17,6 +17,7 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 | [`admin_cancel_login_link_bulk`](#admin_cancel_login_link_bulk) | [`POST /api/bulk/admin/users/cancel-login-link`](api.md#post-apibulkadminuserscancel-login-link) | admin keys | Stop an account's login link working, for many at once (admin) |
 | [`admin_check_project`](#admin_check_project) | [`POST /api/admin/projects/{project_id}/check`](api.md#post-apiadminprojectsproject_idcheck) | admin keys | Check a project (admin) |
 | [`admin_create_invite_link`](#admin_create_invite_link) | [`POST /api/admin/invite-links`](api.md#post-apiadmininvite-links) | admin keys | Create an invite link (admin) |
+| [`admin_create_person_portal_user`](#admin_create_person_portal_user) | [`POST /api/admin/people/{person_id}/portal-user`](api.md#post-apiadminpeopleperson_idportal-user) | admin keys | Make a person a portal account (admin) |
 | [`admin_create_remote_invite_link`](#admin_create_remote_invite_link) | [`POST /api/admin/projects/{project_id}/invite-links`](api.md#post-apiadminprojectsproject_idinvite-links) | admin keys | Make an invite link on a project (admin) |
 | [`admin_create_remote_user`](#admin_create_remote_user) | [`POST /api/admin/projects/{project_id}/remote-users`](api.md#post-apiadminprojectsproject_idremote-users) | admin keys | Make an account on a project (admin) |
 | [`admin_create_user`](#admin_create_user) | [`POST /api/admin/users`](api.md#post-apiadminusers) | admin keys | Create an account (admin) |
@@ -186,6 +187,27 @@ One link for a group: each person who opens it joins as a new account with role 
 | `label` | string | yes | 1 to 80 characters |  |
 | `max_uses` | integer | yes | 1 to 1000 |  |
 | `role` | string | no | one of `user`, `viewer`; default `user` | The role each person who joins gets: user, or viewer (reads only). |
+
+## admin_create_person_portal_user
+
+For someone from before the portal: make them an account here, put it under the person, and make each of their app accounts its own (as matching would), so Open signs them into the accounts they have. Answers with user_id and its first login link. A person who already has an account here is 409: link that one instead. Answers with login_url (open it to sign in; it works once unless max_uses says otherwise).
+
+|  |  |
+|---|---|
+| Route | [`POST /api/admin/people/{person_id}/portal-user`](api.md#post-apiadminpeopleperson_idportal-user) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `account_expires_at` | string (date-time) or null | no |  | When the account stops working (RFC 3339). Left out: never. |
+| `display_name` | string | no | at most 80 characters | The account's name here. Left out: the person's name. |
+| `expires_in_minutes` | integer or null | no | 0 to 525600 | 0 never expires. Default auth.login_token_ttl_seconds for a link that works once, auth.multi_use_login_token_ttl_seconds otherwise. |
+| `max_uses` | integer or null | no | 0 to 1000 | Sign-ins the link allows: 1-1000, or 0 for unlimited. Default 1. |
+| `person_id` | integer | yes | at least 1 |  |
+| `role` | string | yes | one of `admin`, `user`, `viewer` |  |
 
 ## admin_create_remote_invite_link
 
@@ -424,7 +446,7 @@ Make someone an account on the project now, as if they had joined, optionally vi
 
 ## admin_link_people
 
-Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.
+Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody. When the person then has one account here, their app accounts become its own (memberships_added), as matching would.
 
 |  |  |
 |---|---|

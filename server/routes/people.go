@@ -186,7 +186,8 @@ type linkPeopleRequest struct {
 }
 
 type personReply struct {
-	Person *models.Person `json:"person"`
+	Person           *models.Person `json:"person"`
+	MembershipsAdded int            `json:"memberships_added,omitempty" jsonschema_description:"How many of the person's app accounts became their portal account's, so Open signs into them (when they have one account here)."`
 }
 
 // linkPeople says accounts are one person: confirming a suggestion, or adding
@@ -195,14 +196,17 @@ type personReply struct {
 // @route("POST /api/admin/people/link", summary="Link accounts to one person",
 //     tag="People", role=ADMIN, errors=(400, 404),
 //     description="Put accounts under one person. People they already belong to are merged into it. "
-//         "Service accounts are refused: they belong to nobody.",
+//         "Service accounts are refused: they belong to nobody. When the person then has one account here, "
+//         "their app accounts become its own (memberships_added), as matching would.",
 //     mcp="admin_link_people",
 // )
 func ( handlers *Handlers ) linkPeople( c fiber.Ctx , in *linkPeopleRequest ) ( reply *personReply , err error ) {
 	person , link_err := models.LinkAccounts( handlers.Store , security.UserFrom( c ).ID , in.PersonID , refsToAccounts( in.Accounts ) )
 	if link_err != nil { return nil , peopleRefusal( link_err ) }
 	handlers.audit( c , logs.KindAdmin , "people linked" , fiber.Map{ "person_id": person.ID , "accounts": len( in.Accounts ) } )
-	reply = &personReply{ Person: person }
+	added , err := handlers.personMemberships( c , person.ID )
+	if err != nil { return }
+	reply = &personReply{ Person: person , MembershipsAdded: added }
 	return
 }
 
@@ -256,7 +260,9 @@ func ( handlers *Handlers ) mergePeople( c fiber.Ctx , in *mergePeopleRequest ) 
 	person , merge_err := models.MergePeople( handlers.Store , in.Into , in.From )
 	if merge_err != nil { return nil , peopleRefusal( merge_err ) }
 	handlers.audit( c , logs.KindAdmin , "people merged" , fiber.Map{ "into": in.Into , "from": in.From } )
-	reply = &personReply{ Person: person }
+	added , err := handlers.personMemberships( c , person.ID )
+	if err != nil { return }
+	reply = &personReply{ Person: person , MembershipsAdded: added }
 	return
 }
 

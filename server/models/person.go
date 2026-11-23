@@ -444,3 +444,16 @@ func AccountLabel( snapshot *AccountSnapshot , account Account ) ( label string 
 	label = fmt.Sprintf( "%s (project %d, #%d)" , name , account.ProjectID , account.RemoteUserID )
 	return
 }
+
+// RecordPortalUser stores what a people-sync would see of one portal user, so
+// an account made from the People screen shows there and can be linked
+// before the next sync.
+func RecordPortalUser( store *db.Store , user *User ) ( err error ) {
+	snapshot := AccountSnapshot{
+		Account: Account{ ProjectID: PortalProject , RemoteUserID: user.ID } ,
+		DisplayName: user.DisplayName , Role: user.Role , Kind: user.KindOrPerson() , Disabled: user.DisabledAt != nil ,
+		Devices: []Device{} , SyncedAt: time.Now().UTC() ,
+	}
+	err = store.Put( db.BucketAccountSnapshots , []byte( snapshot.Account.Key() ) , &snapshot )
+	return
+}

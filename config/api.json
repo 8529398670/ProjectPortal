@@ -5309,7 +5309,7 @@
     },
     "/api/admin/people/link": {
       "post": {
-        "description": "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.",
+        "description": "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody. When the person then has one account here, their app accounts become its own (memberships_added), as matching would.",
         "operationId": "post_api_admin_people_link",
         "requestBody": {
           "content": {
@@ -5366,6 +5366,10 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "memberships_added": {
+                      "description": "How many of the person's app accounts became their portal account's, so Open signs into them (when they have one account here).",
+                      "type": "integer"
+                    },
                     "person": {
                       "oneOf": [
                         {
@@ -5486,6 +5490,10 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "memberships_added": {
+                      "description": "How many of the person's app accounts became their portal account's, so Open signs into them (when they have one account here).",
+                      "type": "integer"
+                    },
                     "person": {
                       "oneOf": [
                         {
@@ -5778,6 +5786,10 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "memberships_added": {
+                      "description": "How many of the person's app accounts became their portal account's, so Open signs into them (when they have one account here).",
+                      "type": "integer"
+                    },
                     "person": {
                       "oneOf": [
                         {
@@ -5851,6 +5863,205 @@
           }
         ],
         "summary": "Rename a person",
+        "tags": [
+          "People"
+        ],
+        "x-required-role": "admin"
+      }
+    },
+    "/api/admin/people/{person_id}/portal-user": {
+      "post": {
+        "description": "For someone from before the portal: make them an account here, put it under the person, and make each of their app accounts its own (as matching would), so Open signs them into the accounts they have. Answers with user_id and its first login link. A person who already has an account here is 409: link that one instead.",
+        "operationId": "post_api_admin_people_person_id_portal_user",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "account_expires_at": {
+                    "description": "When the account stops working (RFC 3339). Left out: never.",
+                    "format": "date-time",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "display_name": {
+                    "description": "The account's name here. Left out: the person's name.",
+                    "maxLength": 80,
+                    "type": "string"
+                  },
+                  "expires_in_minutes": {
+                    "description": "0 never expires. Default auth.login_token_ttl_seconds for a link that works once, auth.multi_use_login_token_ttl_seconds otherwise.",
+                    "maximum": 525600,
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "max_uses": {
+                    "description": "Sign-ins the link allows: 1-1000, or 0 for unlimited. Default 1.",
+                    "maximum": 1000,
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "role": {
+                    "enum": [
+                      "admin",
+                      "user",
+                      "viewer"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "role"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "expires_at": {
+                      "description": "null when it never expires.",
+                      "format": "date-time",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "expires_in_seconds": {
+                      "description": "0 when it never expires.",
+                      "type": "integer"
+                    },
+                    "login_path": {
+                      "description": "Path of the login link. A credential: treat it like a password.",
+                      "type": "string"
+                    },
+                    "max_uses": {
+                      "description": "0 when unlimited.",
+                      "type": "integer"
+                    },
+                    "memberships_added": {
+                      "description": "How many of the person's app accounts became this account's, so Open signs into them.",
+                      "type": "integer"
+                    },
+                    "person": {
+                      "oneOf": [
+                        {
+                          "properties": {
+                            "created_at": {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            "display_name": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "integer"
+                            },
+                            "notes": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "format": "date-time",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "created_at",
+                            "display_name",
+                            "id",
+                            "updated_at"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "unlimited": {
+                      "type": "boolean"
+                    },
+                    "user_id": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "expires_at",
+                    "expires_in_seconds",
+                    "login_path",
+                    "max_uses",
+                    "memberships_added",
+                    "person",
+                    "unlimited",
+                    "user_id"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Make a person a portal account",
         "tags": [
           "People"
         ],

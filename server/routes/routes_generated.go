@@ -252,7 +252,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.dismissPeople , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/people/link" , apidoc.Op{
 		Summary: "Link accounts to one person",
-		Description: "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.",
+		Description: "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody. When the person then has one account here, their app accounts become its own (memberships_added), as matching would.",
 		Tag: "People",
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 },
@@ -286,6 +286,14 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 },
 	} , handlers.editPerson , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "POST" , "/api/admin/people/{person_id}/portal-user" , apidoc.Op{
+		Summary: "Make a person a portal account",
+		Description: "For someone from before the portal: make them an account here, put it under the person, and make each of their app accounts its own (as matching would), so Open signs them into the accounts they have. Answers with user_id and its first login link. A person who already has an account here is 409: link that one instead.",
+		Tag: "People",
+		Role: apidoc.Admin,
+		Status: 201,
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 },
+	} , handlers.createPersonPortalUser , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "GET" , "/api/admin/projects" , apidoc.Op{
 		Summary: "The catalog",
 		Description: "Every project in the portal, a page at a time, with whether its admin key works, whether it is up, how many people are on it, and its GitHub and TodoBoard links.",
@@ -1218,6 +1226,12 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		AdminOnly: true,
 		Enabled: handlers.inviteLinksOn,
 	} , withJoinURL ) )
+	server.Register( mcp.ForRoute( "POST /api/admin/people/{person_id}/portal-user" , handlers.createPersonPortalUser , mcp.Tool{
+		Name: "admin_create_person_portal_user",
+		Title: "Make a person a portal account (admin)",
+		Description: "For someone from before the portal: make them an account here, put it under the person, and make each of their app accounts its own (as matching would), so Open signs them into the accounts they have. Answers with user_id and its first login link. A person who already has an account here is 409: link that one instead. Answers with login_url (open it to sign in; it works once unless max_uses says otherwise).",
+		AdminOnly: true,
+	} , withLoginLinkURL ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/invite-links" , handlers.createRemoteInvite , mcp.Tool{
 		Name: "admin_create_remote_invite_link",
 		Title: "Make an invite link on a project (admin)",
@@ -1308,7 +1322,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/admin/people/link" , handlers.linkPeople , mcp.Tool{
 		Name: "admin_link_people",
 		Title: "Link accounts to one person (admin)",
-		Description: "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody.",
+		Description: "Put accounts under one person. People they already belong to are merged into it. Service accounts are refused: they belong to nobody. When the person then has one account here, their app accounts become its own (memberships_added), as matching would.",
 		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/link/{user_id}" , handlers.linkRemote , mcp.Tool{
