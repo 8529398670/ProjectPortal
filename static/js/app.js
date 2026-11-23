@@ -566,6 +566,12 @@ const App = {
       // Where they are signed in, on the server's ladder: nobody else sees the
       // owner's, and only the owner sees another admin's.
       const seesSessions = App.currentUser.is_owner || user.id === App.currentUser.id || user.role !== "admin";
+      // Which apps they may join. Admins see every app already.
+      const appsButton = user.role === "admin" ? null : Dom.el( "button" , {
+        class: "btn btn-sm btn-outline-secondary",
+        children: [ Dom.el( "i" , { class: "bi bi-grid me-1" , attrs: { "aria-hidden": "true" } } ) , Dom.el( "span" , { text: I18n.get( "admin.apps_button" ) } ) ],
+        on: { click: () => Access.showPerson( user ) },
+      } );
       const sessionsButton = !seesSessions ? null : Dom.el( "button" , {
         class: "btn btn-sm btn-outline-secondary",
         text: I18n.get( "admin.sessions_button" ),
@@ -605,6 +611,7 @@ const App = {
         Dom.el( "td" , { class: "text-nowrap" , children: [ Dom.when( user.created_at ) ] } ),
         Dom.el( "td" , { children: [
           Dom.rowActions( user.display_name , [
+            appsButton,
             reissueButton,
             cancelLinkButton,
             sessionsButton,

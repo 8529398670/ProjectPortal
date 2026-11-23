@@ -225,6 +225,13 @@
       },
       "CatalogProject": {
         "properties": {
+          "allowed_user_ids": {
+            "description": "People who may see and join it. It is off for everyone else (admins always see it).",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
           "base_url": {
             "type": "string"
           },
@@ -270,13 +277,6 @@
           },
           "description": {
             "type": "string"
-          },
-          "excluded_user_ids": {
-            "description": "People it is kept from.",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
           },
           "github_url": {
             "description": "The project's code, for admins.",
@@ -396,6 +396,7 @@
           }
         },
         "required": [
+          "allowed_user_ids",
           "base_url",
           "behind",
           "board_share_url",
@@ -407,7 +408,6 @@
           "contract",
           "created_at",
           "description",
-          "excluded_user_ids",
           "github_url",
           "health",
           "icon",
@@ -2208,6 +2208,63 @@
           "role",
           "two_factor",
           "username"
+        ],
+        "type": "object"
+      },
+      "UserProject": {
+        "properties": {
+          "allowed": {
+            "description": "Whether they may see and join it. Admins always may.",
+            "type": "boolean"
+          },
+          "color": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "listed": {
+            "description": "false: hidden from everyone but admins, even people allowed it.",
+            "type": "boolean"
+          },
+          "member": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "own_key": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "project_id": {
+            "type": "integer"
+          },
+          "remote_name": {
+            "type": "string"
+          },
+          "remote_user_id": {
+            "type": "integer"
+          },
+          "via": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "allowed",
+          "color",
+          "icon",
+          "listed",
+          "member",
+          "name",
+          "own_key",
+          "position",
+          "project_id",
+          "remote_name",
+          "remote_user_id",
+          "via"
         ],
         "type": "object"
       }
@@ -6273,7 +6330,7 @@
     },
     "/api/admin/projects/{project_id}/access/{user_id}": {
       "post": {
-        "description": "allowed false keeps a listed project from one person: it leaves their list and the portal stops signing them in. Their account on the project itself stays. Admins always see everything.",
+        "description": "Projects are off for everyone by default. allowed true lets one person see and join a listed project; allowed false keeps it from them again: it leaves their list and the portal stops signing them in. Their account on the project itself stays unless on_project says otherwise. Admins always see everything.",
         "operationId": "post_api_admin_projects_project_id_access_user_id",
         "parameters": [
           {
@@ -6304,7 +6361,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "allowed": {
-                    "description": "false keeps the project from them: it leaves their list, and the portal will not sign them into it.",
+                    "description": "true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it.",
                     "type": "boolean"
                   },
                   "csrf_token": {
@@ -6700,7 +6757,7 @@
     },
     "/api/admin/projects/{project_id}/grant/{user_id}": {
       "post": {
-        "description": "Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.",
+        "description": "Make someone an account on the project now, as if they had joined, optionally view only or expiring, and allow them the project. They sign in from their own list; no link is handed to you.",
         "operationId": "post_api_admin_projects_project_id_grant_user_id",
         "parameters": [
           {
@@ -7356,7 +7413,7 @@
     },
     "/api/admin/projects/{project_id}/link/{user_id}": {
       "post": {
-        "description": "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner.",
+        "description": "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner. It also allows them the project.",
         "operationId": "post_api_admin_projects_project_id_link_user_id",
         "parameters": [
           {
@@ -10064,6 +10121,144 @@
         "x-required-role": "admin"
       }
     },
+    "/api/admin/users/{user_id}/projects": {
+      "get": {
+        "description": "Every project, a page at a time, with whether this person may see and join it and whether they are on it. Projects are off for everyone by default; switch one on with admin_set_project_access.",
+        "operationId": "get_api_admin_users_user_id_projects",
+        "parameters": [
+          {
+            "description": "The account's id, from GET /api/admin/users (admin_list_users over MCP).",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to return. Default 200.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip: the next value of the previous page.",
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Keep projects whose name contains this, in any case.",
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Field to sort by. Default the catalog's order.",
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "enum": [
+                "name",
+                "allowed",
+                "member",
+                "position"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Default asc.",
+            "in": "query",
+            "name": "dir",
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "next": {
+                      "description": "Offset of the next page, or null on the last one.",
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "rows": {
+                      "items": {
+                        "$ref": "#/components/schemas/UserProject"
+                      },
+                      "type": "array"
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "next",
+                    "rows",
+                    "total"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Which projects someone may join",
+        "tags": [
+          "Catalog"
+        ],
+        "x-required-role": "admin"
+      }
+    },
     "/api/admin/users/{user_id}/reissue-login": {
       "post": {
         "description": "For someone who lost their device or their link: a fresh login link for their account.",
@@ -11361,7 +11556,7 @@
                       "additionalProperties": false,
                       "properties": {
                         "allowed": {
-                          "description": "false keeps the project from them: it leaves their list, and the portal will not sign them into it.",
+                          "description": "true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it.",
                           "type": "boolean"
                         },
                         "on_project": {
@@ -11399,7 +11594,7 @@
                     "description": "Fields every item gets, unless the item sets its own.",
                     "properties": {
                       "allowed": {
-                        "description": "false keeps the project from them: it leaves their list, and the portal will not sign them into it.",
+                        "description": "true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it.",
                         "type": "boolean"
                       },
                       "on_project": {

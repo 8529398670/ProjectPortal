@@ -318,7 +318,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.projectAccess , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/access/{user_id}" , apidoc.Op{
 		Summary: "Let someone use a project, or not",
-		Description: "allowed false keeps a listed project from one person: it leaves their list and the portal stops signing them in. Their account on the project itself stays. Admins always see everything.",
+		Description: "Projects are off for everyone by default. allowed true lets one person see and join a listed project; allowed false keeps it from them again: it leaves their list and the portal stops signing them in. Their account on the project itself stays unless on_project says otherwise. Admins always see everything.",
 		Tag: "Catalog",
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 },
@@ -347,7 +347,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.editProject , handlers.Guard.RequireAdmin , handlers.Guard.RequireSession )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/grant/{user_id}" , apidoc.Op{
 		Summary: "Put someone on a project",
-		Description: "Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.",
+		Description: "Make someone an account on the project now, as if they had joined, optionally view only or expiring, and allow them the project. They sign in from their own list; no link is handed to you.",
 		Tag: "Catalog",
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
@@ -391,7 +391,7 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 	} , handlers.revokeRemoteKey , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/projects/{project_id}/link/{user_id}" , apidoc.Op{
 		Summary: "Match someone to their account on a project",
-		Description: "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner.",
+		Description: "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner. It also allows them the project.",
 		Tag: "Catalog",
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
@@ -576,6 +576,13 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Role: apidoc.Admin,
 		Errors: []int{ 400 , 401 , 403 , 404 },
 	} , handlers.actOnProjectAccounts , handlers.Guard.RequireAdmin )
+	apidoc.Mount( app , "GET" , "/api/admin/users/{user_id}/projects" , apidoc.Op{
+		Summary: "Which projects someone may join",
+		Description: "Every project, a page at a time, with whether this person may see and join it and whether they are on it. Projects are off for everyone by default; switch one on with admin_set_project_access.",
+		Tag: "Catalog",
+		Role: apidoc.Admin,
+		Errors: []int{ 400 , 401 , 403 , 404 },
+	} , handlers.userProjects , handlers.Guard.RequireAdmin )
 	apidoc.Mount( app , "POST" , "/api/admin/users/{user_id}/reissue-login" , apidoc.Op{
 		Summary: "A new login link for an account",
 		Description: "For someone who lost their device or their link: a fresh login link for their account.",
@@ -1295,7 +1302,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/grant/{user_id}" , handlers.grantProject , mcp.Tool{
 		Name: "admin_grant_project",
 		Title: "Put someone on a project (admin)",
-		Description: "Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.",
+		Description: "Make someone an account on the project now, as if they had joined, optionally view only or expiring, and allow them the project. They sign in from their own list; no link is handed to you.",
 		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/admin/people/link" , handlers.linkPeople , mcp.Tool{
@@ -1307,7 +1314,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/link/{user_id}" , handlers.linkRemote , mcp.Tool{
 		Name: "admin_link_remote_user",
 		Title: "Match someone to their account on a project (admin)",
-		Description: "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner.",
+		Description: "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner. It also allows them the project.",
 		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForRoute( "GET /api/admin/projects" , handlers.listCatalog , mcp.Tool{
@@ -1350,6 +1357,13 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		Name: "admin_list_remote_users",
 		Title: "A project's own accounts (admin)",
 		Description: "The accounts on the project itself, as its admin key sees them, 200 at a time.",
+		ReadOnly: true,
+		AdminOnly: true,
+	} , nil ) )
+	server.Register( mcp.ForRoute( "GET /api/admin/users/{user_id}/projects" , handlers.userProjects , mcp.Tool{
+		Name: "admin_list_user_projects",
+		Title: "Which projects someone may join (admin)",
+		Description: "Every project, a page at a time, with whether this person may see and join it and whether they are on it. Projects are off for everyone by default; switch one on with admin_set_project_access.",
 		ReadOnly: true,
 		AdminOnly: true,
 	} , nil ) )
@@ -1529,7 +1543,7 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 	server.Register( mcp.ForRoute( "POST /api/admin/projects/{project_id}/access/{user_id}" , handlers.setAccess , mcp.Tool{
 		Name: "admin_set_project_access",
 		Title: "Let someone use a project, or not (admin)",
-		Description: "allowed false keeps a listed project from one person: it leaves their list and the portal stops signing them in. Their account on the project itself stays. Admins always see everything.",
+		Description: "Projects are off for everyone by default. allowed true lets one person see and join a listed project; allowed false keeps it from them again: it leaves their list and the portal stops signing them in. Their account on the project itself stays unless on_project says otherwise. Admins always see everything.",
 		AdminOnly: true,
 	} , nil ) )
 	server.Register( mcp.ForBulk( "POST /api/bulk/admin/projects/access" , "POST /api/admin/projects/{project_id}/access/{user_id}" , handlers.setAccess , mcp.Tool{

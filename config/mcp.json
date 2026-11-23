@@ -760,7 +760,7 @@
         "readOnlyHint": false,
         "title": "Put someone on a project (admin)"
       },
-      "description": "Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.",
+      "description": "Make someone an account on the project now, as if they had joined, optionally view only or expiring, and allow them the project. They sign in from their own list; no link is handed to you.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -858,7 +858,7 @@
         "readOnlyHint": false,
         "title": "Match someone to their account on a project (admin)"
       },
-      "description": "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner.",
+      "description": "Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner. It also allows them the project.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1108,6 +1108,67 @@
       "name": "admin_list_remote_users",
       "route": "GET /api/admin/projects/{project_id}/remote-users",
       "title": "A project's own accounts (admin)"
+    },
+    {
+      "adminOnly": true,
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Which projects someone may join (admin)"
+      },
+      "description": "Every project, a page at a time, with whether this person may see and join it and whether they are on it. Projects are off for everyone by default; switch one on with admin_set_project_access.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "dir": {
+            "description": "Default asc.",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "type": "string"
+          },
+          "limit": {
+            "default": 200,
+            "description": "Rows to return. Default 200.",
+            "maximum": 1000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "description": "Rows to skip: the next value of the previous page.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "q": {
+            "description": "Keep projects whose name contains this, in any case.",
+            "type": "string"
+          },
+          "sort": {
+            "description": "Field to sort by. Default the catalog's order.",
+            "enum": [
+              "name",
+              "allowed",
+              "member",
+              "position"
+            ],
+            "type": "string"
+          },
+          "user_id": {
+            "description": "The account's id, from GET /api/admin/users (admin_list_users over MCP).",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "name": "admin_list_user_projects",
+      "route": "GET /api/admin/users/{user_id}/projects",
+      "title": "Which projects someone may join (admin)"
     },
     {
       "adminOnly": true,
@@ -2079,12 +2140,12 @@
         "readOnlyHint": false,
         "title": "Let someone use a project, or not (admin)"
       },
-      "description": "allowed false keeps a listed project from one person: it leaves their list and the portal stops signing them in. Their account on the project itself stays. Admins always see everything.",
+      "description": "Projects are off for everyone by default. allowed true lets one person see and join a listed project; allowed false keeps it from them again: it leaves their list and the portal stops signing them in. Their account on the project itself stays unless on_project says otherwise. Admins always see everything.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "allowed": {
-            "description": "false keeps the project from them: it leaves their list, and the portal will not sign them into it.",
+            "description": "true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it.",
             "type": "boolean"
           },
           "on_project": {
@@ -2136,7 +2197,7 @@
               "additionalProperties": false,
               "properties": {
                 "allowed": {
-                  "description": "false keeps the project from them: it leaves their list, and the portal will not sign them into it.",
+                  "description": "true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it.",
                   "type": "boolean"
                 },
                 "on_project": {
@@ -2174,7 +2235,7 @@
             "description": "Fields every item gets, unless the item sets its own.",
             "properties": {
               "allowed": {
-                "description": "false keeps the project from them: it leaves their list, and the portal will not sign them into it.",
+                "description": "true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it.",
                 "type": "boolean"
               },
               "on_project": {

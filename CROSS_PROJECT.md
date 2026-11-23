@@ -29,6 +29,13 @@ If an app falls out of sync (Check now shows a refused key, or Join/Open answers
 424, which the portal used to send as 502), check it against this table first. The usual fix is the `webserver-upgrade`
 skill run in that app.
 
+### 2026-11-23, portal only, nothing to do in the apps: apps are off until allowed
+Each catalog app is now off for every portal user until an admin allows it for
+them (Users → Apps, or the Access screen). People only see, and can only Join,
+the apps they are allowed. Admins see everything. The first start after deploy
+runs migration 1: each person keeps the apps they already have an account on,
+and nothing else. The apps themselves need no change.
+
 ### The portal contract: the skills are the source of truth (v3, 2026-11-22)
 The binding wire format now lives in the webserver skills, the same text in
 both: the "Portal contract" section of `~/.claude/skills/go-webserver/SKILL.md`

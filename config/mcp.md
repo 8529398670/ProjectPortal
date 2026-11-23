@@ -38,6 +38,7 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 | [`admin_list_remote_invite_links`](#admin_list_remote_invite_links) | [`GET /api/admin/projects/{project_id}/invite-links`](api.md#get-apiadminprojectsproject_idinvite-links) | admin keys | A project's invite links (admin) |
 | [`admin_list_remote_keys`](#admin_list_remote_keys) | [`GET /api/admin/projects/{project_id}/remote-users/{remote_user_id}/keys`](api.md#get-apiadminprojectsproject_idremote-usersremote_user_idkeys) | admin keys | An account's API keys on a project (admin) |
 | [`admin_list_remote_users`](#admin_list_remote_users) | [`GET /api/admin/projects/{project_id}/remote-users`](api.md#get-apiadminprojectsproject_idremote-users) | admin keys | A project's own accounts (admin) |
+| [`admin_list_user_projects`](#admin_list_user_projects) | [`GET /api/admin/users/{user_id}/projects`](api.md#get-apiadminusersuser_idprojects) | admin keys | Which projects someone may join (admin) |
 | [`admin_list_user_sessions`](#admin_list_user_sessions) | [`GET /api/admin/users/{user_id}/sessions`](api.md#get-apiadminusersuser_idsessions) | admin keys | An account's signed-in devices (admin) |
 | [`admin_list_users`](#admin_list_users) | [`GET /api/admin/users`](api.md#get-apiadminusers) | admin keys | List users (admin) |
 | [`admin_merge_people`](#admin_merge_people) | [`POST /api/admin/people/merge`](api.md#post-apiadminpeoplemerge) | admin keys | Merge two people (admin) |
@@ -404,7 +405,7 @@ The theme list everyone without their own list sees. themes is null while the bu
 
 ## admin_grant_project
 
-Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.
+Make someone an account on the project now, as if they had joined, optionally view only or expiring, and allow them the project. They sign in from their own list; no link is handed to you.
 
 |  |  |
 |---|---|
@@ -442,7 +443,7 @@ Put accounts under one person. People they already belong to are merged into it.
 
 ## admin_link_remote_user
 
-Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner.
+Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner. It also allows them the project.
 
 |  |  |
 |---|---|
@@ -563,6 +564,27 @@ The accounts on the project itself, as its admin key sees them, 200 at a time.
 | `offset` | integer | no | at least 0 | From the previous page's next. |
 | `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
 | `q` | string | no |  | Keep accounts whose name contains this. |
+
+## admin_list_user_projects
+
+Every project, a page at a time, with whether this person may see and join it and whether they are on it. Projects are off for everyone by default; switch one on with admin_set_project_access.
+
+|  |  |
+|---|---|
+| Route | [`GET /api/admin/users/{user_id}/projects`](api.md#get-apiadminusersuser_idprojects) |
+| Read only | yes |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `dir` | string | no | one of `asc`, `desc` | Default asc. |
+| `limit` | integer | no | 1 to 1000; default `200` | Rows to return. Default 200. |
+| `offset` | integer | no | at least 0 | Rows to skip: the next value of the previous page. |
+| `q` | string | no |  | Keep projects whose name contains this, in any case. |
+| `sort` | string | no | one of `name`, `allowed`, `member`, `position` | Field to sort by. Default the catalog's order. |
+| `user_id` | integer | yes | at least 1 | The account's id, from GET /api/admin/users (admin_list_users over MCP). |
 
 ## admin_list_user_sessions
 
@@ -1003,7 +1025,7 @@ Set how many people the link may take in (never fewer than have joined) and, whe
 
 ## admin_set_project_access
 
-allowed false keeps a listed project from one person: it leaves their list and the portal stops signing them in. Their account on the project itself stays. Admins always see everything.
+Projects are off for everyone by default. allowed true lets one person see and join a listed project; allowed false keeps it from them again: it leaves their list and the portal stops signing them in. Their account on the project itself stays unless on_project says otherwise. Admins always see everything.
 
 |  |  |
 |---|---|
@@ -1015,7 +1037,7 @@ allowed false keeps a listed project from one person: it leaves their list and t
 
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
-| `allowed` | boolean | yes |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
+| `allowed` | boolean | yes |  | true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it. |
 | `on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
 | `project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
 | `user_id` | integer | yes | at least 1 | The account's id here, from admin_list_users. |
@@ -1035,12 +1057,12 @@ Runs admin_set_project_access once per item: items holds each call's arguments, 
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
 | `items` | array of object | yes |  | One entry per thing to change: its id, and any field that differs from shared. |
-| `items[].allowed` | boolean | no |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
+| `items[].allowed` | boolean | no |  | true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it. |
 | `items[].on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
 | `items[].project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
 | `items[].user_id` | integer | yes | at least 1 | The account's id here, from admin_list_users. |
 | `shared` | object | no |  | Fields every item gets, unless the item sets its own. |
-| `shared.allowed` | boolean | no |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
+| `shared.allowed` | boolean | no |  | true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it. |
 | `shared.on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
 
 ## admin_set_remote_disabled

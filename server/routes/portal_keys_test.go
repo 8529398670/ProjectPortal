@@ -64,7 +64,7 @@ func ( app *fakeApp ) called( suffix string ) ( result bool ) {
 }
 
 // catalogProject puts app in the catalog with an admin key, and alice on it
-// as account 5 there.
+// as account 5 there, allowed it.
 func catalogProject( t *testing.T , fixture *authFixture , app *fakeApp ) ( project *models.Project ) {
 	t.Helper()
 	sealed , err := models.SealRemoteKey( fixture.cfg.SecretKey , "portalkey.secretsecretsecret" )
@@ -73,6 +73,7 @@ func catalogProject( t *testing.T , fixture *authFixture , app *fakeApp ) ( proj
 	if err != nil { t.Fatal( err ) }
 	_ , err = models.AddMembership( fixture.store , models.Membership{ UserID: fixture.alice.ID , ProjectID: project.ID , RemoteUserID: 5 , RemoteName: "Alice there" , RemoteRole: "user" , Via: models.ViaLinked } , true )
 	if err != nil { t.Fatal( err ) }
+	if project , err = models.SetUserAllowed( fixture.store , project.ID , fixture.alice.ID , true ); err != nil { t.Fatal( err ) }
 	return
 }
 

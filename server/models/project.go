@@ -33,10 +33,11 @@ type Project struct {
 	GitHubURL     string `json:"github_url,omitempty"`
 	BoardURL      string `json:"board_url,omitempty"`
 	BoardShareURL string `json:"board_share_url,omitempty"`
-	// Listed is whether people see it at all; ExcludedUserIDs are the people
-	// it is kept from while it is listed. Everyone else may join it.
-	Listed          bool     `json:"listed"`
-	ExcludedUserIDs []uint64 `json:"excluded_user_ids,omitempty"`
+	// Listed is whether people see it at all; AllowedUserIDs are the people
+	// who may see and join it while it is listed. It is off for everyone
+	// else: an admin allows each person.
+	Listed         bool     `json:"listed"`
+	AllowedUserIDs []uint64 `json:"allowed_user_ids,omitempty"`
 	Position        int      `json:"position"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
@@ -303,26 +304,27 @@ func RecordRotatedKey( store *db.Store , project_id uint64 , old_sealed string ,
 	return
 }
 
-// SetProjectAccess is who a listed project is kept from.
-func SetProjectAccess( store *db.Store , project_id uint64 , excluded []uint64 ) ( project *Project , err error ) {
+// SetProjectAccess is who may use a listed project.
+func SetProjectAccess( store *db.Store , project_id uint64 , allowed []uint64 ) ( project *Project , err error ) {
 	clean := []uint64{}
-	for _ , user_id := range excluded {
+	for _ , user_id := range allowed {
 		if user_id != 0 && slices.Contains( clean , user_id ) == false { clean = append( clean , user_id ) }
 	}
 	slices.Sort( clean )
 	project , err = updateProject( store , project_id , func( project *Project ) ( mutate_err error ) {
-		project.ExcludedUserIDs = clean
+		project.AllowedUserIDs = clean
 		return
 	} )
 	return
 }
 
-// SetUserExcluded keeps one project from one person, or lets them see it again.
-func SetUserExcluded( store *db.Store , project_id uint64 , user_id uint64 , excluded bool ) ( project *Project , err error ) {
+// SetUserAllowed lets one person see and join one project, or keeps it
+// from them again.
+func SetUserAllowed( store *db.Store , project_id uint64 , user_id uint64 , allowed bool ) ( project *Project , err error ) {
 	project , err = updateProject( store , project_id , func( project *Project ) ( mutate_err error ) {
-		project.ExcludedUserIDs = slices.DeleteFunc( project.ExcludedUserIDs , func( id uint64 ) bool { return id == user_id } )
-		if excluded { project.ExcludedUserIDs = append( project.ExcludedUserIDs , user_id ) }
-		slices.Sort( project.ExcludedUserIDs )
+		project.AllowedUserIDs = slices.DeleteFunc( project.AllowedUserIDs , func( id uint64 ) bool { return id == user_id } )
+		if allowed { project.AllowedUserIDs = append( project.AllowedUserIDs , user_id ) }
+		slices.Sort( project.AllowedUserIDs )
 		return
 	} )
 	return
@@ -406,14 +408,14 @@ func PurgeDeletedProjects( store *db.Store ) ( removed int , err error ) {
 	return
 }
 
-// Excludes is whether the project is kept from this person.
-func ( project *Project ) Excludes( user_id uint64 ) ( result bool ) {
-	result = slices.Contains( project.ExcludedUserIDs , user_id )
+// Allows is whether an admin let this person use the project.
+func ( project *Project ) Allows( user_id uint64 ) ( result bool ) {
+	result = slices.Contains( project.AllowedUserIDs , user_id )
 	return
 }
 
 // CanSee is the one access rule: a project is open to someone when it is
-// listed and not kept from them. is_admin is the caller's effective role (an
+// listed and an admin allowed them (it is off for everyone by default). is_admin is the caller's effective role (an
 // admin's user-scoped key is a user here): admins see every live project, so
 // they can manage and test it.
 func CanSee( user_id uint64 , is_admin bool , project *Project ) ( result bool ) {
@@ -422,6 +424,6 @@ func CanSee( user_id uint64 , is_admin bool , project *Project ) ( result bool )
 		result = true
 		return
 	}
-	result = project.Listed && project.Excludes( user_id ) == false
+	result = project.Listed && project.Allows( user_id )
 	return
 }

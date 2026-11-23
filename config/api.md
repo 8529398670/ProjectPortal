@@ -2897,6 +2897,7 @@ Refused: this server keeps no sessions
 | GET | [`/api/admin/projects/{project_id}/remote-users`](#get-apiadminprojectsproject_idremote-users) | A project's own accounts | browser session or API key, admins |
 | POST | [`/api/admin/projects/{project_id}/restore`](#post-apiadminprojectsproject_idrestore) | Undo deleting a project | browser session or API key, admins |
 | POST | [`/api/admin/projects/{project_id}/rotate-key`](#post-apiadminprojectsproject_idrotate-key) | Rotate a project's key | browser session or API key, admins |
+| GET | [`/api/admin/users/{user_id}/projects`](#get-apiadminusersuser_idprojects) | Which projects someone may join | browser session or API key, admins |
 | POST | [`/api/bulk/admin/projects/access`](#post-apibulkadminprojectsaccess) | Let someone use a project, or not, for many at once | browser session or API key, admins |
 
 ### GET /api/admin/projects
@@ -3022,7 +3023,7 @@ Every account here, a page at a time, with whether it may use the project and wh
 
 Let someone use a project, or not
 
-allowed false keeps a listed project from one person: it leaves their list and the portal stops signing them in. Their account on the project itself stays. Admins always see everything.
+Projects are off for everyone by default. allowed true lets one person see and join a listed project; allowed false keeps it from them again: it leaves their list and the portal stops signing them in. Their account on the project itself stays unless on_project says otherwise. Admins always see everything.
 
 |  |  |
 |---|---|
@@ -3041,7 +3042,7 @@ allowed false keeps a listed project from one person: it leaves their list and t
 
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
-| `allowed` | boolean | yes |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
+| `allowed` | boolean | yes |  | true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it. |
 | `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
 | `on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
 
@@ -3155,7 +3156,7 @@ Change a project's name, description, address, icon, color, links or whether it 
 
 Put someone on a project
 
-Make someone an account on the project now, as if they had joined, optionally view only or expiring. They sign in from their own list; no link is handed to you.
+Make someone an account on the project now, as if they had joined, optionally view only or expiring, and allow them the project. They sign in from their own list; no link is handed to you.
 
 |  |  |
 |---|---|
@@ -3218,7 +3219,7 @@ Replace the admin API key the portal uses on a project. It must be an admin key 
 
 Match someone to their account on a project
 
-Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner.
+Say which account on the project is theirs. Opening the project then signs them into it. The project's owner, and its admins unless the portal's key is the owner's, cannot be signed in this way: they attach their own key instead. An account already someone else's here is 409. Only the owner links another admin; nobody links the owner. It also allows them the project.
 
 |  |  |
 |---|---|
@@ -3366,6 +3367,37 @@ Swap the portal's admin key on the project for a new secret, now. The key keeps 
 |---|---|---|---|---|
 | `project` | [`CatalogProject`](#catalogproject) | yes |  |  |
 
+### GET /api/admin/users/{user_id}/projects
+
+Which projects someone may join
+
+Every project, a page at a time, with whether this person may see and join it and whether they are on it. Projects are off for everyone by default; switch one on with admin_set_project_access.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, admins |
+| MCP tool | [`admin_list_user_projects`](mcp.md#admin_list_user_projects) |
+| Errors | 400, 401, 403, 404, 429, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `user_id` | path | integer | yes | at least 1 | The account's id, from GET /api/admin/users (admin_list_users over MCP). |
+| `limit` | query | integer | no | 1 to 1000; default `200` | Rows to return. Default 200. |
+| `offset` | query | integer | no | at least 0 | Rows to skip: the next value of the previous page. |
+| `q` | query | string | no |  | Keep projects whose name contains this, in any case. |
+| `sort` | query | string | no | one of `name`, `allowed`, `member`, `position` | Field to sort by. Default the catalog's order. |
+| `dir` | query | string | no | one of `asc`, `desc` | Default asc. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `next` | integer or null | yes |  | Offset of the next page, or null on the last one. |
+| `rows` | array of [`UserProject`](#userproject) | yes |  |  |
+| `total` | integer | yes |  |  |
+
 ### POST /api/bulk/admin/projects/access
 
 Let someone use a project, or not, for many at once
@@ -3384,12 +3416,12 @@ Runs POST /api/admin/projects/{project_id}/access/{user_id} once per item: items
 |---|---|---|---|---|
 | `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
 | `items` | array of object | yes |  | One entry per thing to change: its id, and any field that differs from shared. |
-| `items[].allowed` | boolean | no |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
+| `items[].allowed` | boolean | no |  | true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it. |
 | `items[].on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
 | `items[].project_id` | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
 | `items[].user_id` | integer | yes | at least 1 | The account's id here, from admin_list_users. |
 | `shared` | object | no |  | Fields every item gets, unless the item sets its own. |
-| `shared.allowed` | boolean | no |  | false keeps the project from them: it leaves their list, and the portal will not sign them into it. |
+| `shared.allowed` | boolean | no |  | true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it. |
 | `shared.on_project` | string | no | one of `keep`, `disable`, `revoke` | With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys. |
 
 **Reply 200**: Success
@@ -4434,6 +4466,7 @@ The shapes the routes above refer to by name.
 
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
+| `allowed_user_ids` | array of integer | yes |  | People who may see and join it. It is off for everyone else (admins always see it). |
 | `base_url` | string | yes |  |  |
 | `behind` | boolean | yes |  | skill_commit differs from the template commit set in Settings. |
 | `board_share_url` | string | yes |  | A view-only TodoBoard share link, which everyone who may see the project gets. |
@@ -4445,7 +4478,6 @@ The shapes the routes above refer to by name.
 | `contract` | integer | yes |  | Which portal contract it speaks: 2 lets Manage project do everything its capabilities list; 0 is older. |
 | `created_at` | string (date-time) | yes |  |  |
 | `description` | string | yes |  |  |
-| `excluded_user_ids` | array of integer | yes |  | People it is kept from. |
 | `github_url` | string | yes |  | The project's code, for admins. |
 | `health` | string | yes |  | up, down, or empty before the first check. |
 | `icon` | string | yes |  |  |
@@ -4923,3 +4955,20 @@ One of these:
 | `role` | string | yes | one of `admin`, `user`, `viewer` |  |
 | `two_factor` | boolean | yes |  |  |
 | `username` | string | yes |  | Empty until a password is set. |
+
+### UserProject
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `allowed` | boolean | yes |  | Whether they may see and join it. Admins always may. |
+| `color` | string | yes |  |  |
+| `icon` | string | yes |  |  |
+| `listed` | boolean | yes |  | false: hidden from everyone but admins, even people allowed it. |
+| `member` | boolean | yes |  |  |
+| `name` | string | yes |  |  |
+| `own_key` | boolean | yes |  |  |
+| `position` | integer | yes |  |  |
+| `project_id` | integer | yes |  |  |
+| `remote_name` | string | yes |  |  |
+| `remote_user_id` | integer | yes |  |  |
+| `via` | string | yes |  |  |

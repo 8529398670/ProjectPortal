@@ -45,7 +45,9 @@ type Migration struct {
 // migrations is every step this app has ever needed. Add to the end, and never
 // edit, reorder or remove one that has shipped: a database's version is a
 // position in this list. references/architecture.md has a worked example.
-var migrations = []Migration{}
+var migrations = []Migration{
+	{ Name: "projects: the exclude list becomes an allow list" , Up: migrateAllowList },
+}
 
 // schemaKey is where the version lives, in a bucket of its own that is not
 // encrypted: the number gives nothing away, and a backup or a rotation has to

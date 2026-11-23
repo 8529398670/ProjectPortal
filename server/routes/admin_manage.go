@@ -190,6 +190,7 @@ func ( handlers *Handlers ) createRemoteUser( c fiber.Ctx , in *createRemoteUser
 			RemoteRole: role , RemoteExpiresAt: expires_at , Via: models.ViaJoined ,
 		}
 		if _ , err = models.AddMembership( handlers.Store , membership , true ); err != nil { return }
+		if err = handlers.allowMember( c , project.ID , member.ID ); err != nil { return }
 	}
 	handlers.audit( c , logs.KindAdmin , "project account made" , fiber.Map{
 		"project_id": project.ID , "remote_user_id": link.RemoteUserID , "role": role , "expires_in_days": in.ExpiresInDays , "user_id": in.UserID ,

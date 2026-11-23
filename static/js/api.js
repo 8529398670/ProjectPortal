@@ -185,6 +185,7 @@ const Api = {
   rotateProjectKey( id )         { return this.post( "/api/admin/projects/" + id + "/rotate-key" ); },
   deleteProject( id )            { return this.post( "/api/admin/projects/" + id + "/delete" ); },
   restoreProject( id )           { return this.post( "/api/admin/projects/" + id + "/restore" ); },
+  userProjects( userId , offset , params ) { return this.request( "/api/admin/users/" + userId + "/projects" + this.query( { offset: offset , ...params } ) ); },
   projectAccess( id , offset , params ) { return this.request( "/api/admin/projects/" + id + "/access" + this.query( { offset: offset , ...params } ) ); },
   // onProject is what happens to their account on the project itself:
   // "keep", "disable" or "revoke" (Manage project, contract v2).

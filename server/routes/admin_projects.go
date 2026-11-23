@@ -43,7 +43,7 @@ type catalogRow struct {
 	CheckNote       string     `json:"check_note"`
 	CheckedAt       *time.Time `json:"checked_at"`
 	Members         int        `json:"members"`
-	ExcludedUserIDs []uint64   `json:"excluded_user_ids" jsonschema_description:"People it is kept from."`
+	AllowedUserIDs  []uint64   `json:"allowed_user_ids" jsonschema_description:"People who may see and join it. It is off for everyone else (admins always see it)."`
 	Position        int        `json:"position"`
 	CreatedAt       time.Time  `json:"created_at"`
 	Version         string     `json:"version" jsonschema_description:"The app's version, from its last check."`
@@ -78,11 +78,11 @@ func newCatalogRow( cfg *config.Config , project *models.Project , members int )
 		ID: project.ID , Name: project.Name , Description: project.Description , BaseURL: project.BaseURL ,
 		Icon: project.Icon , Color: project.Color , Listed: project.Listed , KeySet: project.AdminKey != "" ,
 		KeyStatus: project.KeyStatus , Health: project.Health , CheckNote: project.CheckNote ,
-		CheckedAt: project.CheckedAt , Members: members , ExcludedUserIDs: project.ExcludedUserIDs ,
+		CheckedAt: project.CheckedAt , Members: members , AllowedUserIDs: project.AllowedUserIDs ,
 		Position: project.Position , CreatedAt: project.CreatedAt ,
 		GitHubURL: project.GitHubURL , BoardURL: project.BoardURL , BoardShareURL: openShareLink( secret_key , project ) ,
 	}
-	if row.ExcludedUserIDs == nil { row.ExcludedUserIDs = []uint64{} }
+	if row.AllowedUserIDs == nil { row.AllowedUserIDs = []uint64{} }
 	row.Version , row.Contract , row.Capabilities = project.Version , project.Contract , project.Capabilities
 	if row.Capabilities == nil { row.Capabilities = []string{} }
 	facts := project.KeyFacts
@@ -442,7 +442,7 @@ func ( handlers *Handlers ) projectAccess( c fiber.Ctx , in *projectAccessReques
 		if query != "" && strings.Contains( strings.ToLower( user.DisplayName ) , query ) == false { continue }
 		row := accessRow{
 			UserID: user.ID , DisplayName: user.DisplayName , Role: user.Role , Disabled: user.Disabled() ,
-			Allowed: user.IsAdmin() || project.Excludes( user.ID ) == false ,
+			Allowed: user.IsAdmin() || project.Allows( user.ID ) ,
 		}
 		if membership := members[ user.ID ]; membership != nil {
 			row.Member , row.Via , row.RemoteUserID = true , membership.Via , membership.RemoteUserID
@@ -458,7 +458,7 @@ func ( handlers *Handlers ) projectAccess( c fiber.Ctx , in *projectAccessReques
 type setAccessRequest struct {
 	projectIDPath
 	UserID  uint64 `json:"user_id" path:"user_id" jsonschema:"minimum=1" jsonschema_description:"The account's id here, from admin_list_users." error:"invalid user id"`
-	Allowed bool   `json:"allowed" jsonschema_description:"false keeps the project from them: it leaves their list, and the portal will not sign them into it."`
+	Allowed bool   `json:"allowed" jsonschema_description:"true lets them see and join the project. false keeps it from them again: it leaves their list, and the portal will not sign them into it."`
 	OnProject string `json:"on_project,omitempty" jsonschema:"enum=keep,enum=disable,enum=revoke" jsonschema_description:"With allowed false, what happens to an account they have on the project: keep it (the default), disable it, or end its sessions, links and keys." error:"on_project must be keep, disable or revoke"`
 }
 
@@ -468,14 +468,15 @@ type setAccessReply struct {
 }
 
 // setAccess lets one person use a project, or keeps it from them. Projects
-// are open to everyone by default; this is the exception list.
+// are off for everyone by default; this is the allow list.
 //
 // @route("POST /api/admin/projects/{project_id}/access/{user_id}", summary="Let someone use a project, or not",
 //     bulk=True,
 //     tag="Catalog", role=ADMIN, errors=(404,),
-//     description="allowed false keeps a listed project from one person: it leaves their list and the "
-//         "portal stops signing them in. Their account on the project itself stays. Admins always see "
-//         "everything.",
+//     description="Projects are off for everyone by default. allowed true lets one person see and join a "
+//         "listed project; allowed false keeps it from them again: it leaves their list and the portal "
+//         "stops signing them in. Their account on the project itself stays unless on_project says "
+//         "otherwise. Admins always see everything.",
 //     mcp="admin_set_project_access",
 // )
 func ( handlers *Handlers ) setAccess( c fiber.Ctx , in *setAccessRequest ) ( reply *setAccessReply , err error ) {
@@ -491,11 +492,22 @@ func ( handlers *Handlers ) setAccess( c fiber.Ctx , in *setAccessRequest ) ( re
 			if err = handlers.actOnRemoteAccount( membership , in.OnProject ); err != nil { return }
 		}
 	}
-	if _ , set_err := models.SetUserExcluded( handlers.Store , in.ProjectID , in.UserID , in.Allowed == false ); set_err != nil {
+	if _ , set_err := models.SetUserAllowed( handlers.Store , in.ProjectID , in.UserID , in.Allowed ); set_err != nil {
 		return nil , projectFieldsRefusal( set_err )
 	}
 	handlers.audit( c , logs.KindAdmin , "project access changed" , fiber.Map{ "project_id": in.ProjectID , "user_id": in.UserID , "allowed": in.Allowed , "on_project": in.OnProject } )
 	reply = &setAccessReply{ Ok: true , Allowed: in.Allowed }
+	return
+}
+
+// allowMember lets someone an admin just put on a project see it: putting
+// someone on an app is allowing them it. Admins see everything already.
+func ( handlers *Handlers ) allowMember( c fiber.Ctx , project_id uint64 , user_id uint64 ) ( err error ) {
+	project , get_err := models.GetProject( handlers.Store , project_id )
+	if get_err != nil || project.Allows( user_id ) { return }
+	if user , user_err := models.GetUser( handlers.Store , user_id ); user_err != nil || user.IsAdmin() { return }
+	if _ , err = models.SetUserAllowed( handlers.Store , project_id , user_id , true ); err != nil { return }
+	handlers.audit( c , logs.KindAdmin , "project access changed" , fiber.Map{ "project_id": project_id , "user_id": user_id , "allowed": true } )
 	return
 }
 
@@ -512,7 +524,7 @@ type grantRequest struct {
 // @route("POST /api/admin/projects/{project_id}/grant/{user_id}", summary="Put someone on a project",
 //     tag="Catalog", role=ADMIN, errors=(404, 409, 424),
 //     description="Make someone an account on the project now, as if they had joined, optionally view only "
-//         "or expiring. They sign in from their own list; no link is handed to you.",
+//         "or expiring, and allow them the project. They sign in from their own list; no link is handed to you.",
 //     mcp="admin_grant_project",
 // )
 func ( handlers *Handlers ) grantProject( c fiber.Ctx , in *grantRequest ) ( reply *okReply , err error ) {
@@ -523,10 +535,6 @@ func ( handlers *Handlers ) grantProject( c fiber.Ctx , in *grantRequest ) ( rep
 		err = refuse( fiber.StatusNotFound , "no such user" )
 		return
 	}
-	if user.IsAdmin() == false && project.Excludes( user.ID ) {
-		err = refuse( fiber.StatusConflict , "this project is kept from them: allow it first" )
-		return
-	}
 	role := in.Role
 	if role == "" { role = remoteRoleUser }
 	if refused := handlers.roleAllowed( project , role ); refused != nil { return nil , refused }
@@ -535,6 +543,7 @@ func ( handlers *Handlers ) grantProject( c fiber.Ctx , in *grantRequest ) ( rep
 		if refused := handlers.needs( project , remote.CapAccountExpiry ); refused != nil { return nil , refused }
 	}
 	if _ , err = handlers.joinAs( c , project , user , false , role , expires_at ); err != nil { return }
+	if err = handlers.allowMember( c , project.ID , user.ID ); err != nil { return }
 	reply = &okReply{ Ok: true }
 	return
 }
@@ -626,7 +635,7 @@ func ( handlers *Handlers ) remoteOwners( project_id uint64 ) ( owners map[uint6
 //     description="Say which account on the project is theirs. Opening the project then signs them into "
 //         "it. The project's owner, and its admins unless the portal's key is the owner's, cannot be "
 //         "signed in this way: they attach their own key instead. An account already someone else's here "
-//         "is 409. Only the owner links another admin; nobody links the owner.",
+//         "is 409. Only the owner links another admin; nobody links the owner. It also allows them the project.",
 //     mcp="admin_link_remote_user",
 // )
 func ( handlers *Handlers ) linkRemote( c fiber.Ctx , in *linkRemoteRequest ) ( reply *okReply , err error ) {
@@ -667,6 +676,7 @@ func ( handlers *Handlers ) linkRemote( c fiber.Ctx , in *linkRemoteRequest ) ( 
 		membership.PersonalKey = existing.PersonalKey
 	}
 	if _ , err = models.AddMembership( handlers.Store , membership , true ); err != nil { return }
+	if err = handlers.allowMember( c , project.ID , in.UserID ); err != nil { return }
 	handlers.audit( c , logs.KindAdmin , "project account linked" , fiber.Map{ "project_id": project.ID , "user_id": in.UserID , "remote_user_id": found.ID } )
 	reply = &okReply{ Ok: true }
 	return

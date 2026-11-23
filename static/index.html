@@ -1189,6 +1189,34 @@
             </div>
           </section>
 
+          <!-- The apps one person may join, from their Apps button. See Access.showPerson. -->
+          <section id="user-projects" class="card" hidden>
+            <div class="card-body">
+              <div class="d-flex align-items-center justify-content-between gap-2">
+                <h3 id="user-projects-heading" class="card-title mb-0"></h3>
+                <button id="user-projects-close" type="button" class="btn-close" data-i18n-attr="aria-label:nav.close"></button>
+              </div>
+              <p class="small text-body-secondary mt-1 mb-2" data-i18n="access.person_help"></p>
+              <div role="search">
+                <label for="user-projects-search" class="visually-hidden" data-i18n="access.person_search"></label>
+                <input id="user-projects-search" class="form-control" type="search" autocomplete="off"
+                       data-i18n-attr="placeholder:access.person_search" />
+              </div>
+              <div class="table-responsive mt-2">
+                <table id="user-projects-table" class="table table-hover align-middle mb-0" data-empty="access.person_empty">
+                  <thead>
+                    <tr>
+                      <th scope="col" data-sort="name"><button type="button" class="th-sort" data-i18n="access.person_table_project"></button></th>
+                      <th scope="col" data-sort="allowed"><button type="button" class="th-sort" data-i18n="access.table_allowed"></button></th>
+                      <th scope="col" data-sort="member"><button type="button" class="th-sort" data-i18n="access.table_member"></button></th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
           <!-- One account's devices, from its Sessions button. See Sessions.showFor. -->
           <section id="user-sessions" class="card" hidden>
             <div class="card-body">

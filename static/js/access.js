@@ -1,6 +1,7 @@
 // The Access screen (admins): one project at a time, everyone in the portal
-// against it. Every project is open to everyone by default; switching
-// someone off keeps it from them. From here an admin can also put someone on
+// against it. Every project is off for everyone by default; switching
+// someone on lets them see and join it. showPerson is the same list turned
+// around: every project against one person, under the Users table. From here an admin can also put someone on
 // a project now, match them to an account the project already had, or take
 // them off it here. app.js calls Access.init( me ) for admins.
 const Access = {
@@ -17,6 +18,9 @@ const Access = {
     } );
     Pager.sortable( "access-table" , () => this.refresh() );
     Pager.search( "access-table" , "access-search" , () => this.refresh() );
+    Pager.sortable( "user-projects-table" , () => this.refreshPerson() );
+    Pager.search( "user-projects-table" , "user-projects-search" , () => this.refreshPerson() );
+    Dom.get( "user-projects-close" ).addEventListener( "click" , () => this.closePerson() );
     await this.fillProjects();
   },
 
@@ -118,6 +122,83 @@ const Access = {
     try {
       await Undo.run( {
         label: I18n.get( allowed ? "access.undo_allow" : "access.undo_deny" ).replace( "{name}" , () => row.display_name ),
+        do: () => set( allowed ),
+        undo: () => set( !allowed ),
+      } );
+    } catch ( error ) {
+      input.checked = !allowed;
+      App.showError( error.message );
+    }
+  },
+
+  // One person's apps, from their Apps button on the Users table.
+  async showPerson( user ) {
+    if ( !this.person || this.person.id !== user.id ) {
+      Pager.reset( "user-projects-table" );
+      Dom.get( "user-projects-search" ).value = "";
+    }
+    this.person = user;
+    Dom.text( Dom.get( "user-projects-heading" ) , I18n.get( "access.person_heading" ).replace( "{name}" , () => user.display_name ) );
+    Dom.show( Dom.get( "user-projects" ) , true );
+    await this.refreshPerson();
+    Dom.reveal( Dom.get( "user-projects" ) );
+  },
+
+  closePerson() {
+    this.person = null;
+    Dom.show( Dom.get( "user-projects" ) , false );
+  },
+
+  async refreshPerson() {
+    const user = this.person;
+    if ( !user ) return;
+    const body = Dom.get( "user-projects-table" ).querySelector( "tbody" );
+    await Pager.load( "user-projects-table" , "rows" , ( offset ) => Api.userProjects( user.id , offset , Pager.params( "user-projects-table" ) ) , ( row ) => {
+      const nameCell = Dom.el( "td" , { children: [
+        Dom.el( "div" , { class: "d-flex align-items-center gap-2" , children: [
+          Projects.icon( row ),
+          Dom.el( "div" , { children: [
+            Dom.el( "div" , { class: "fw-semibold" , text: row.name } ),
+            row.listed ? null : Dom.el( "div" , { class: "small text-body-secondary" , text: I18n.get( "access.hidden" ) } ),
+          ].filter( Boolean ) } ),
+        ] } ),
+      ] } );
+      const id = "user-project-allow-" + row.project_id;
+      const input = Dom.el( "input" , { class: "form-check-input" , attrs: { type: "checkbox" , role: "switch" , id: id } } );
+      input.checked = row.allowed;
+      input.addEventListener( "change" , () => this.onPersonAllow( user , row , input ) );
+      const allowCell = Dom.el( "td" , { children: [ Dom.el( "div" , { class: "form-check form-switch mb-0" , children: [
+        input,
+        Dom.el( "label" , { class: "visually-hidden" , text: I18n.get( "access.person_allow_label" ).replace( "{name}" , () => user.display_name ).replace( "{project}" , () => row.name ) , attrs: { for: id } } ),
+      ] } ) ] } );
+      body.appendChild( Dom.el( "tr" , { children: [
+        nameCell,
+        allowCell,
+        Dom.el( "td" , { children: [ this.status( row ) ] } ),
+      ] } ) );
+    } );
+  },
+
+  async onPersonAllow( user , row , input ) {
+    const allowed = input.checked;
+    let onProject = "keep";
+    if ( !allowed && row.member ) {
+      // onProjectChoice reads the row the Access screen's way.
+      const asAccess = { ...row , display_name: user.display_name };
+      onProject = await this.onProjectChoice( asAccess , I18n.get( "access.person_deny_heading" ).replace( "{name}" , () => user.display_name ).replace( "{project}" , () => row.name ) );
+      if ( onProject === null ) {
+        input.checked = true;
+        return;
+      }
+    }
+    const set = async ( value ) => {
+      await Api.setProjectAccess( row.project_id , user.id , value , value ? "keep" : onProject );
+      if ( this.person && this.person.id === user.id ) await this.refreshPerson();
+      if ( this.projectId === row.project_id ) await this.refresh();
+    };
+    try {
+      await Undo.run( {
+        label: I18n.get( allowed ? "access.undo_allow" : "access.undo_deny" ).replace( "{name}" , () => user.display_name ),
         do: () => set( allowed ),
         undo: () => set( !allowed ),
       } );
