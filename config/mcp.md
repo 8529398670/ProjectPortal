@@ -567,7 +567,7 @@ The accounts on the project itself, as its admin key sees them, 200 at a time.
 
 ## admin_list_user_sessions
 
-Where an account is signed in: every session, with when it started and was last seen. Addresses are shown to the owner only, and only the owner sees the owner's.
+Where an account is signed in: every session, with when it started and was last seen. Addresses are shown to the owner and service accounts only. Nobody sees the owner's, and only the owner sees another admin's.
 
 |  |  |
 |---|---|

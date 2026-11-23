@@ -14,6 +14,21 @@ skill: review, back up the app's database, then run `gitPushUpdate.sh`.
 - [ ] **TodoBoard** (`~/WORKSPACE/PROJECTS/TodoBoard`): check it in a browser
   (admin row menu, invite links, a viewer account, themes), back up the database, commit.
 
+## `admin-sessions` upgraded, not yet committed or deployed (2026-11-22)
+
+Skills `917bdb0 -> 608cadf`. For each one, back up the database, run its
+`gitPushUpdate.sh`, then use Check now in the portal (Capabilities should list
+`admin_sessions`).
+
+- [ ] ZoteroWebDAV
+- [ ] QRCodeOrganizer
+- [ ] MediaTracker
+- [ ] PaperReferenceManagerAddons
+- [ ] TodoBoard
+- [ ] MRIExperimentalDesignPlanner
+- [ ] Rook (has a new file, `server/routes/sessions_helpers_test.go`)
+- [ ] ProjectPortal (this repo)
+
 ## Not started
 
 - [ ] **iPB / IOSWebAppPushNotifications** (`~/WORKSPACE/PROJECTS/IOSWebAppPushNotifications`)

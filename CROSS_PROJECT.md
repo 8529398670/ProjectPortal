@@ -51,12 +51,28 @@ v3 in brief:
 The v2 parts (viewer role, account expiry, invite-link roles, key minting) are
 unchanged, and the skills' section spells them out too.
 
-### 2026-11-22, still to do in the skills and then each app: `admin_sessions`
-The portal's People screen (phase 3b) shows each account's devices. That needs
-`GET /api/admin/users/{id}/sessions` in both webserver templates, capability
-`admin_sessions`, and then a small `webserver-upgrade` in each app. Until an app
-has it, People shows "Not listed" for that app's devices and suggests matches
-by name only. The portal side is done.
+### 2026-11-22, upgraded, not yet committed or deployed: `admin_sessions`
+The portal's People screen (phase 3b) shows each account's devices through
+`GET /api/admin/users/{id}/sessions`, capability `admin_sessions` (skills commit
+`608cadf`, upgrade `admin-sessions`). `webserver-upgrade` has applied it, tests
+passing, in ZoteroWebDAV, QRCodeOrganizer, MediaTracker, PaperReferenceManagerAddons,
+TodoBoard, MRIExperimentalDesignPlanner, Rook and ProjectPortal. Each still needs
+a commit with its `gitPushUpdate.sh`, then Check now in the portal.
+Not upgraded, being further behind: AIS Counter, E2EEDB, iPB, VocabTrainer.
+Until an app has it, People shows "Not listed" for that app's devices and
+suggests matches by name only.
+
+Notes from the rollout:
+- TodoBoard's Devices entry lives in its own row menu, which now follows the
+  same ladder (`seesSessions`) as the template's button.
+- Rook builds `/api/me` as a map and has no `sessions_test.go`. It got the
+  `admin_sessions` line in `capabilities()` and a `devices` test helper in
+  `server/routes/sessions_helpers_test.go`. Its admin screen is the owner's
+  alone, so there is no button change.
+- Older test failures, already on the committed code and not caused by the
+  upgrade: PaperReference `test_list_ops.test_cite` (the list of citation styles
+  differs) and the MRI planner's 4 `test_actions.ToolArgumentsTest` errors
+  (`'Call' object has no attribute 'bind'`).
 
 ### Known gap: apps that cannot make a sign-in link for a key
 Attaching your own key only checks `GET /api/me`, so the card says "Signs you in
