@@ -304,6 +304,31 @@ func ( handlers *Handlers ) openProject( c fiber.Ctx , in *projectIDPath ) ( rep
 	return
 }
 
+// markOpened is Open without a login link: the tile's Open goes straight to
+// the project's address (the browser is usually still signed in there), and
+// this only records it, so "recently opened" keeps its order.
+//
+// @route("POST /api/projects/{project_id}/opened", summary="Record opening a project",
+//     tag="Projects", errors=(404, 409),
+//     description="Marks a project you are on as just opened, which puts it first in a list sorted by "
+//         "recently opened. It makes no login link: open_project does that.",
+//     mcp_http="Only orders the person's own list as their browser opens a project; an agent opens nothing.",
+// )
+func ( handlers *Handlers ) markOpened( c fiber.Ctx , in *projectIDPath ) ( reply *membershipReply , err error ) {
+	project , refused := handlers.visibleProject( c , in.ProjectID )
+	if refused != nil { return nil , refused }
+	user := security.UserFrom( c )
+	membership , get_err := models.GetMembership( handlers.Store , user.ID , project.ID )
+	if get_err != nil || membership.Active() == false {
+		err = refuse( fiber.StatusConflict , "you are not on this project yet: join it first" )
+		return
+	}
+	if err = models.MarkOpened( handlers.Store , user.ID , project.ID ); err != nil { return }
+	if membership , err = models.GetMembership( handlers.Store , user.ID , project.ID ); err != nil { return }
+	reply = &membershipReply{ Project: newProjectCard( handlers.cfg().SecretKey , project , membership ) }
+	return
+}
+
 // keyMayNotSignIn words the refusal a project gives a key that may not make
 // its account a sign-in link: Sign-in links is off for that key, or the
 // project is from before keys could (its login-link route is browser-only,

@@ -293,3 +293,14 @@ func SetUserThemeID( store *db.Store , user_id uint64 , theme_id string ) ( err 
 		} )
 	return
 }
+
+// SetThemeShare switches sending someone's theme to their apps on or off.
+func SetThemeShare( store *db.Store , user_id uint64 , on bool ) ( err error ) {
+	err = store.UpdateValue( db.BucketUsers , encryption.Uint64ToBytes( user_id ) ,
+		func() any { return &User{} } ,
+		func( item any ) ( mutate_err error ) {
+			item.( *User ).ThemeShareOff = on == false
+			return
+		} )
+	return
+}

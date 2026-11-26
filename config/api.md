@@ -58,6 +58,8 @@ An error reply is a JSON object whose `error` says what went wrong.
 | POST | [`/api/account/sessions/{session_id}/revoke`](#post-apiaccountsessionssession_idrevoke) | Sign out one of your devices | browser session or API key, anyone signed in |
 | POST | [`/api/account/shortcuts`](#post-apiaccountshortcuts) | Change your keyboard shortcuts | browser session or API key, anyone signed in |
 | POST | [`/api/account/theme`](#post-apiaccounttheme) | Pick your theme | browser session or API key, anyone signed in |
+| POST | [`/api/account/theme-share`](#post-apiaccounttheme-share) | Use your theme in all your apps | browser session or API key, anyone signed in |
+| POST | [`/api/account/theme/send`](#post-apiaccountthemesend) | Send a theme to all your apps | browser session or API key, anyone signed in |
 | POST | [`/api/account/themes`](#post-apiaccountthemes) | Replace your own themes | browser session or API key, anyone signed in |
 | POST | [`/api/account/two-factor/confirm`](#post-apiaccounttwo-factorconfirm) | Turn two-factor on | browser session only, anyone signed in |
 | POST | [`/api/account/two-factor/disable`](#post-apiaccounttwo-factordisable) | Turn two-factor off | browser session only, anyone signed in |
@@ -363,6 +365,61 @@ Switch to another theme from your list (or the defaults), by its id.
 |---|---|---|---|---|
 | `ok` | boolean | yes |  |  |
 | `theme_id` | string | yes |  |  |
+
+### POST /api/account/theme-share
+
+Use your theme in all your apps
+
+on true: whenever the theme you use changes, it is sent to every app you are on that takes it. The sending itself is POST /api/account/theme/send.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, anyone signed in |
+| MCP tool | [`set_theme_share`](mcp.md#set_theme_share) |
+| Errors | 400, 401, 403, 429, 503 |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `on` | boolean | yes |  | true sends the theme you use to your apps whenever it changes. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `ok` | boolean | yes |  |  |
+| `theme_share` | boolean | yes |  |  |
+
+### POST /api/account/theme/send
+
+Send a theme to all your apps
+
+Puts the theme on your account in every app you are on and picks it there. Apps that cannot take a theme yet (no user_theme capability) are skipped; one app saying no does not stop the rest.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, anyone signed in |
+| MCP tool | [`send_theme_to_apps`](mcp.md#send_theme_to_apps) |
+| Errors | 400, 401, 403, 429, 503 |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+| `theme` | [`Theme`](#theme) | yes |  | The theme to use in your apps, in the Theme schema. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `apps` | array of object | yes |  | Every app you are on, by name. |
+| `apps[].name` | string | yes |  |  |
+| `apps[].note` | string | no |  | Why it was skipped or refused. |
+| `apps[].project_id` | integer | yes |  |  |
+| `apps[].status` | string | yes | one of `sent`, `skipped`, `refused` | sent; skipped: the app cannot take a theme yet, or is not set up; refused: the app said no, see note. |
 
 ### POST /api/account/themes
 
@@ -4189,6 +4246,7 @@ For someone from before the portal: make them an account here, put it under the 
 | POST | [`/api/projects/{project_id}/join`](#post-apiprojectsproject_idjoin) | Join a project | browser session or API key, anyone signed in |
 | POST | [`/api/projects/{project_id}/leave`](#post-apiprojectsproject_idleave) | Leave a project | browser session or API key, anyone signed in |
 | POST | [`/api/projects/{project_id}/open`](#post-apiprojectsproject_idopen) | Sign in to a project | browser session or API key, anyone signed in |
+| POST | [`/api/projects/{project_id}/opened`](#post-apiprojectsproject_idopened) | Record opening a project | browser session or API key, anyone signed in |
 | POST | [`/api/projects/{project_id}/own-key`](#post-apiprojectsproject_idown-key) | Use your own key on a project | browser session only, anyone signed in |
 | POST | [`/api/projects/{project_id}/own-key/remove`](#post-apiprojectsproject_idown-keyremove) | Stop using your own key on a project | browser session or API key, anyone signed in |
 | POST | [`/api/projects/{project_id}/restore`](#post-apiprojectsproject_idrestore) | Undo leaving a project | browser session or API key, anyone signed in |
@@ -4344,6 +4402,36 @@ A fresh login link for your account on a project you are on: with your own key w
 |---|---|---|---|---|
 | `login_url` | string | yes |  | Open it to sign in to the project. It works once, for 15 minutes. A credential: treat it like a password. |
 | `project_id` | integer | yes |  |  |
+
+### POST /api/projects/{project_id}/opened
+
+Record opening a project
+
+Marks a project you are on as just opened, which puts it first in a list sorted by recently opened. It makes no login link: open_project does that.
+
+|  |  |
+|---|---|
+| Who may call | browser session or API key, anyone signed in |
+| MCP tool | None, HTTP only: Only orders the person's own list as their browser opens a project; an agent opens nothing. |
+| Errors | 400, 401, 403, 404, 409, 429, 503 |
+
+**Parameters**
+
+| Name | In | Type | Required | Limits | Description |
+|---|---|---|---|---|---|
+| `project_id` | path | integer | yes | at least 1 | The project's id, from GET /api/projects (list_projects over MCP). |
+
+**Request body**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `csrf_token` | string | no |  | From GET /api/me. Browser sessions only. |
+
+**Reply 200**: Success
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `project` | [`ProjectCard`](#projectcard) | yes |  |  |
 
 ### POST /api/projects/{project_id}/own-key
 
@@ -4701,6 +4789,7 @@ One of these:
 | `skill` | string | no |  | The webserver skill this app was scaffolded from (go-webserver or python-webserver), from its .skill-origin.yaml. Absent when that is not known. |
 | `skill_commit` | string | no |  | The skill's commit this app was scaffolded from or last upgraded to, from its .skill-origin.yaml. Absent when that is not known. |
 | `theme_id` | string | yes |  | The theme you use. Empty: the first. |
+| `theme_share` | boolean | yes |  | Whether the theme you use is sent to the apps you are on whenever it changes. |
 | `themes` | array of [`Theme`](#theme) or null | yes |  | Your themes (see the Theme schema): your own list, else the app's defaults, else null for the built-in ones. |
 | `themes_builtins` | integer | yes |  | Which built-in themes that list has seen (see builtins on POST /api/account/themes). |
 | `themes_custom` | boolean | yes |  | Whether you have your own list rather than following the defaults. |

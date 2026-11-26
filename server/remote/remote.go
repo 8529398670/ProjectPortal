@@ -339,6 +339,14 @@ func ReissueLogin( ctx context.Context , base_url string , admin_key string , re
 	return
 }
 
+// SetUserTheme puts theme on an account there and picks it (capability
+// user_theme), made with an admin key.
+func SetUserTheme( ctx context.Context , base_url string , admin_key string , remote_user_id uint64 , theme any ) ( err error ) {
+	path := "/api/admin/users/" + strconv.FormatUint( remote_user_id , 10 ) + "/theme"
+	err = call( ctx , base_url , admin_key , http.MethodPost , path , map[string]any{ "theme": theme } , nil )
+	return
+}
+
 // OwnLoginLink is a link for the key's own account. The project refuses
 // unless that key was allowed to make sign-in links.
 func OwnLoginLink( ctx context.Context , base_url string , key string ) ( link *Link , err error ) {

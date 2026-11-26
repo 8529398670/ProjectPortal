@@ -29,6 +29,24 @@ If an app falls out of sync (Check now shows a refused key, or Join/Open answers
 424, which the portal used to send as 502), check it against this table first. The usual fix is the `webserver-upgrade`
 skill run in that app.
 
+### 2026-11-26, plan to paste: `user_theme`, one theme in every app
+The portal now sends the theme someone uses (Appearance → "Use my theme in all
+my apps", on by default) to each app they are on. It calls
+`POST /api/admin/users/{id}/theme` with `{"theme": <Theme>}` using its service
+account key, and only on apps whose `/api/me` lists the `user_theme`
+capability. Other apps show as "Skipped" on the Appearance screen.
+
+The route and capability belong in both webserver skills (Portal contract
+section, `appearance` feature). Once they are there, paste this into a session
+in each catalog app:
+
+> Run the webserver-upgrade skill to bring in the `user_theme` portal-contract
+> route (`POST /api/admin/users/{id}/theme`, capability `user_theme`, part of the
+> `appearance` feature). Then run the tests and `scripts/contract_check.sh`
+> against the local app.
+
+After deploying, Check now in the portal's Catalog picks up the new capability.
+
 ### 2026-11-23, portal only, nothing to do in the apps: apps are off until allowed
 Each catalog app is now off for every portal user until an admin allows it for
 them (Users → Apps, or the Access screen). People only see, and can only Join,

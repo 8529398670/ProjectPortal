@@ -174,6 +174,7 @@ const App = {
     this.showViewOnly( me );
     this.labelAccount();
     ThemeEditor.init( me );
+    ThemeShare.init( me );
     Shortcuts.signedIn( me );
     Dom.get( "display-name" ).value = me.display_name;
 

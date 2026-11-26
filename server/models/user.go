@@ -97,6 +97,10 @@ type User struct {
 	Themes         []Theme `json:"themes,omitempty"`
 	ThemesBuiltIns int     `json:"themes_builtins,omitempty"`
 	ThemeID        string  `json:"theme_id,omitempty"`
+	// ThemeShareOff stops the portal sending the theme in use to the apps
+	// this person is on (routes/theme_share.go). Off by choice: sharing is
+	// the default.
+	ThemeShareOff bool `json:"theme_share_off,omitempty"`
 }
 
 // Disabled is true for an account switched off, and for one whose expiry

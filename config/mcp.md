@@ -96,8 +96,10 @@ Every tool POST /mcp offers. Written by scripts/api_docs.sh from the registered 
 | [`revoke_my_other_sessions`](#revoke_my_other_sessions) | [`POST /api/account/sessions/revoke-others`](api.md#post-apiaccountsessionsrevoke-others) | any key | Sign out all your devices |
 | [`revoke_my_session`](#revoke_my_session) | [`POST /api/account/sessions/{session_id}/revoke`](api.md#post-apiaccountsessionssession_idrevoke) | any key | Sign out one of your devices |
 | [`revoke_my_session_bulk`](#revoke_my_session_bulk) | [`POST /api/bulk/account/sessions/revoke`](api.md#post-apibulkaccountsessionsrevoke) | any key | Sign out one of your devices, for many at once |
+| [`send_theme_to_apps`](#send_theme_to_apps) | [`POST /api/account/theme/send`](api.md#post-apiaccountthemesend) | any key | Send a theme to all your apps |
 | [`set_shortcuts`](#set_shortcuts) | [`POST /api/account/shortcuts`](api.md#post-apiaccountshortcuts) | any key | Change your keyboard shortcuts |
 | [`set_theme`](#set_theme) | [`POST /api/account/theme`](api.md#post-apiaccounttheme) | any key | Pick your theme |
+| [`set_theme_share`](#set_theme_share) | [`POST /api/account/theme-share`](api.md#post-apiaccounttheme-share) | any key | Use your theme in all your apps |
 | [`set_themes`](#set_themes) | [`POST /api/account/themes`](api.md#post-apiaccountthemes) | any key | Replace your own themes |
 | [`tag_project`](#tag_project) | [`POST /api/projects/{project_id}/tags`](api.md#post-apiprojectsproject_idtags) | any key | Tag a project |
 | [`whoami`](#whoami) | [`GET /api/me`](api.md#get-apime) | any key | Who am I |
@@ -1605,6 +1607,47 @@ Runs revoke_my_session once per item: items holds each call's arguments, shared 
 | `items[].session_id` | string | yes |  | The device's id, from GET /api/account/sessions or GET /api/admin/users/{user_id}/sessions (list_my_sessions or admin_list_user_sessions over MCP). |
 | `shared` | object | no |  | Fields every item gets, unless the item sets its own. |
 
+## send_theme_to_apps
+
+Puts the theme on your account in every app you are on and picks it there. Apps that cannot take a theme yet (no user_theme capability) are skipped; one app saying no does not stop the rest.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/account/theme/send`](api.md#post-apiaccountthemesend) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `theme` | object | yes |  | The theme to use in your apps, in the Theme schema. |
+| `theme.accent` | string | yes |  | The main color: what you can press. |
+| `theme.background` | string | no |  | The page. Left out: the mode's own. |
+| `theme.button` | object or null | no |  | How the theme's buttons look. A choice left out is the default (rounded, normal, raised, normal). |
+| `theme.button.case` | string | no | one of `normal`, `upper` |  |
+| `theme.button.depth` | string | no | one of `flat`, `raised`, `glossy` |  |
+| `theme.button.shape` | string | no | one of `square`, `soft`, `rounded`, `pill` |  |
+| `theme.button.weight` | string | no | one of `normal`, `medium`, `bold` |  |
+| `theme.dark` | object or null | no |  | A light theme's colors for dark mode, kept while it is light. Switching the theme to dark swaps them in. A light theme's light (or a dark theme's dark) is dropped. |
+| `theme.dark.accent` | string | yes |  | The main color: what you can press. |
+| `theme.dark.background` | string | no |  | The page. Left out: the mode's own. |
+| `theme.dark.overrides` | map of string | no |  | Worked-out colors replaced by name: text, accent, accentFg, accentText, second, secondFg, secondText, link, navLink, background, surface, nested, chrome, bar (the bar across the top), barText, info, infoBorder, border, rowOdd and rowEven (alternating table rows), and for each button variant V (Secondary, Success, Danger, Warning, Info, Light, Dark) btnV, btnVFg and btnVText. Leaving one out puts the readable color back. |
+| `theme.dark.second` | string | yes |  | Says where you are: active nav item, headings, info. |
+| `theme.dark.surface` | string | no |  | Cards. Left out: the mode's own. |
+| `theme.id` | string | yes |  | Lower-case letters, digits, - and _, up to 32. |
+| `theme.light` | object or null | no |  | A dark theme's colors for light mode, kept while it is dark. Switching the theme to light swaps them in. |
+| `theme.light.accent` | string | yes |  | The main color: what you can press. |
+| `theme.light.background` | string | no |  | The page. Left out: the mode's own. |
+| `theme.light.overrides` | map of string | no |  | Worked-out colors replaced by name: text, accent, accentFg, accentText, second, secondFg, secondText, link, navLink, background, surface, nested, chrome, bar (the bar across the top), barText, info, infoBorder, border, rowOdd and rowEven (alternating table rows), and for each button variant V (Secondary, Success, Danger, Warning, Info, Light, Dark) btnV, btnVFg and btnVText. Leaving one out puts the readable color back. |
+| `theme.light.second` | string | yes |  | Says where you are: active nav item, headings, info. |
+| `theme.light.surface` | string | no |  | Cards. Left out: the mode's own. |
+| `theme.mode` | string | yes | one of `light`, `dark` |  |
+| `theme.name` | string | yes |  | 1 to 60 characters. |
+| `theme.overrides` | map of string | no |  | Worked-out colors replaced by name: text, accent, accentFg, accentText, second, secondFg, secondText, link, navLink, background, surface, nested, chrome, bar (the bar across the top), barText, info, infoBorder, border, rowOdd and rowEven (alternating table rows), and for each button variant V (Secondary, Success, Danger, Warning, Info, Light, Dark) btnV, btnVFg and btnVText. Leaving one out puts the readable color back. |
+| `theme.second` | string | yes |  | Says where you are: active nav item, headings, info. |
+| `theme.surface` | string | no |  | Cards. Left out: the mode's own. |
+
 ## set_shortcuts
 
 Replace your changed keyboard shortcuts: action name to binding, such as "search": "Mod+K" (Mod is Cmd on a Mac, Ctrl elsewhere). Send the whole set; an empty binding switches a key off, and {} puts every key back to its default. whoami shows the current set.
@@ -1636,6 +1679,22 @@ Switch to another theme from your list (or the defaults), by its id.
 | Field | Type | Required | Limits | Description |
 |---|---|---|---|---|
 | `theme_id` | string | yes |  | A theme's id. Empty for the first in the list. |
+
+## set_theme_share
+
+on true: whenever the theme you use changes, it is sent to every app you are on that takes it. The sending itself is POST /api/account/theme/send.
+
+|  |  |
+|---|---|
+| Route | [`POST /api/account/theme-share`](api.md#post-apiaccounttheme-share) |
+| Read only | no |
+| Destructive | no |
+
+**Arguments**
+
+| Field | Type | Required | Limits | Description |
+|---|---|---|---|---|
+| `on` | boolean | yes |  | true sends the theme you use to your apps whenever it changes. |
 
 ## set_themes
 
@@ -1728,4 +1787,5 @@ Routes an API key may call that have no tool, and why.
 | [`POST /api/keys/self/rotate`](api.md#post-apikeysselfrotate) | Makes an API key's credential, which no MCP tool does. |
 | [`POST /api/logout`](api.md#post-apilogout) | Ends a browser session; a key has none to end. |
 | [`POST /api/logs/events`](api.md#post-apilogsevents) | The browser's own activity reports (track.js), not an action. |
+| [`POST /api/projects/{project_id}/opened`](api.md#post-apiprojectsproject_idopened) | Only orders the person's own list as their browser opens a project; an agent opens nothing. |
 | [`POST /mcp`](api.md#post-mcp) | The MCP endpoint itself. |

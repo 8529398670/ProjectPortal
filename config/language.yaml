@@ -157,7 +157,7 @@ undo:
 # The Projects screen (static/js/projects.js).
 projects:
   heading: "My projects"
-  description: "Every project you can use. Open one to be signed straight in, whatever happened to your sign-in there."
+  description: "Every project you can use. Open goes straight there; Sign in gets you back in, whatever happened to your sign-in there."
   search_label: "Search projects"
   tag_label: "Tag"
   all_tags: "All tags"
@@ -174,7 +174,10 @@ projects:
   health_down: "Not answering"
   signed_in_as: "Signs you in as {name}"
   open_button: "Open"
-  open_hint: "Opens in a new tab"
+  open_hint: "Goes to the project in a new tab. Signed out there? Use Sign in."
+  sign_in_button: "Sign in"
+  sign_in_hint: "Signs you in to the project with a fresh login link, in a new tab"
+  address_hint: "Goes to the project in a new tab"
   new_link_button: "Make a new login link"
   new_link_copied: "Login link copied. It works once, for 15 minutes."
   # Where the browser would not copy it: the link is shown to copy by hand.
@@ -449,6 +452,16 @@ manage:
 # The Appearance screen (static/js/themes_editor.js). Light is always the
 # default. Names for the built-in themes in static/js/theme.js, used until a
 # list is saved; a saved list keeps its own names.
+theme_share:
+  heading: "Your apps"
+  switch: "Use my theme in all my apps"
+  help: "Whenever the theme you use changes, it is sent to every app you are on that can take it."
+  send_button: "Send to my apps now"
+  sent_toast: "Theme sent to {count} of your apps."
+  none: "You are not on any app yet."
+  status_sent: "Sent"
+  status_skipped: "Skipped"
+  status_refused: "Refused"
 theme:
   heading: "Appearance"
   tab_mine: "My themes"
@@ -1264,7 +1277,7 @@ people:
   hand_made: "Hand-made portal account: delete it in {app}"
   portal_user_button: "Make portal account"
   portal_user_heading: "A portal account for {name}"
-  portal_user_help: "For someone from before the portal. The account is put under this person, and their app accounts become its own, so Open signs them into the accounts they already have. Anyone who made their own portal account and joined apps from it does not need this."
+  portal_user_help: "For someone from before the portal. The account is put under this person, and their app accounts become its own, so Sign in signs them into the accounts they already have. Anyone who made their own portal account and joined apps from it does not need this."
   portal_user_submit: "Make account"
   portal_user_name_label: "Name here"
   portal_user_role_label: "Role here"

@@ -949,6 +949,11 @@
             "type": "string",
             "x-feature": "appearance"
           },
+          "theme_share": {
+            "description": "Whether the theme you use is sent to the apps you are on whenever it changes.",
+            "type": "boolean",
+            "x-feature": "appearance"
+          },
           "themes": {
             "description": "Your themes (see the Theme schema): your own list, else the app's defaults, else null for the built-in ones.",
             "oneOf": [
@@ -1024,6 +1029,7 @@
           "shortcuts",
           "show_about",
           "theme_id",
+          "theme_share",
           "themes",
           "themes_builtins",
           "themes_custom",
@@ -3259,6 +3265,196 @@
           }
         ],
         "summary": "Pick your theme",
+        "tags": [
+          "Account"
+        ]
+      },
+      "x-feature": "appearance"
+    },
+    "/api/account/theme-share": {
+      "post": {
+        "description": "on true: whenever the theme you use changes, it is sent to every app you are on that takes it. The sending itself is POST /api/account/theme/send.",
+        "operationId": "post_api_account_theme_share",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "on": {
+                    "description": "true sends the theme you use to your apps whenever it changes.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "on"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "theme_share": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "theme_share"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Use your theme in all your apps",
+        "tags": [
+          "Account"
+        ]
+      },
+      "x-feature": "appearance"
+    },
+    "/api/account/theme/send": {
+      "post": {
+        "description": "Puts the theme on your account in every app you are on and picks it there. Apps that cannot take a theme yet (no user_theme capability) are skipped; one app saying no does not stop the rest.",
+        "operationId": "post_api_account_theme_send",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  },
+                  "theme": {
+                    "$ref": "#/components/schemas/Theme",
+                    "description": "The theme to use in your apps, in the Theme schema."
+                  }
+                },
+                "required": [
+                  "theme"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "apps": {
+                      "description": "Every app you are on, by name.",
+                      "items": {
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "description": "Why it was skipped or refused.",
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "integer"
+                          },
+                          "status": {
+                            "description": "sent; skipped: the app cannot take a theme yet, or is not set up; refused: the app said no, see note.",
+                            "enum": [
+                              "sent",
+                              "skipped",
+                              "refused"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "project_id",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "apps"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Send a theme to all your apps",
         "tags": [
           "Account"
         ]
@@ -15960,6 +16156,95 @@
         "tags": [
           "Projects"
         ]
+      }
+    },
+    "/api/projects/{project_id}/opened": {
+      "post": {
+        "description": "Marks a project you are on as just opened, which puts it first in a list sorted by recently opened. It makes no login link: open_project does that.",
+        "operationId": "post_api_projects_project_id_opened",
+        "parameters": [
+          {
+            "description": "The project's id, from GET /api/projects (list_projects over MCP).",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "csrf_token": {
+                    "description": "From GET /api/me. Browser sessions only.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "project": {
+                      "$ref": "#/components/schemas/ProjectCard"
+                    }
+                  },
+                  "required": [
+                    "project"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Record opening a project",
+        "tags": [
+          "Projects"
+        ],
+        "x-mcp-http": "Only orders the person's own list as their browser opens a project; an agent opens nothing."
       }
     },
     "/api/projects/{project_id}/own-key": {

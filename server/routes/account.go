@@ -60,6 +60,7 @@ type meReply struct {
 	ThemesCustom       bool                  `json:"themes_custom" jsonschema_description:"Whether you have your own list rather than following the defaults." jsonschema_extras:"x-feature=appearance"`
 	ThemesBuiltIns     int                   `json:"themes_builtins" jsonschema_description:"Which built-in themes that list has seen (see builtins on POST /api/account/themes)." jsonschema_extras:"x-feature=appearance"`
 	ThemeID            string                `json:"theme_id" jsonschema_description:"The theme you use. Empty: the first." jsonschema_extras:"x-feature=appearance"`
+	ThemeShare         bool                  `json:"theme_share" jsonschema_description:"Whether the theme you use is sent to the apps you are on whenever it changes." jsonschema_extras:"x-feature=appearance"`
 	LoginLink          *models.LoginLinkInfo `json:"login_link" jsonschema_description:"Your own live login link, or null."`
 }
 
@@ -139,6 +140,7 @@ func ( handlers *Handlers ) getMe( c fiber.Ctx , in *apidoc.None ) ( reply *meRe
 		ThemesCustom:       themes_custom,
 		ThemesBuiltIns:     themes_builtins,
 		ThemeID:            user.ThemeID,
+		ThemeShare:         user.ThemeShareOff == false,
 		HasPIN:             user.HasPin(),
 		Username:           user.Username,
 		HasPassword:        user.HasPassword(),

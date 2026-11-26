@@ -85,6 +85,20 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Feature: "appearance",
 		Errors: []int{ 400 , 401 , 403 },
 	} , handlers.setMyTheme , handlers.Guard.RequireLogin )
+	apidoc.Mount( app , "POST" , "/api/account/theme/send" , apidoc.Op{
+		Summary: "Send a theme to all your apps",
+		Description: "Puts the theme on your account in every app you are on and picks it there. Apps that cannot take a theme yet (no user_theme capability) are skipped; one app saying no does not stop the rest.",
+		Tag: "Account",
+		Feature: "appearance",
+		Errors: []int{ 400 , 401 , 403 },
+	} , handlers.sendTheme , handlers.Guard.RequireLogin )
+	apidoc.Mount( app , "POST" , "/api/account/theme-share" , apidoc.Op{
+		Summary: "Use your theme in all your apps",
+		Description: "on true: whenever the theme you use changes, it is sent to every app you are on that takes it. The sending itself is POST /api/account/theme/send.",
+		Tag: "Account",
+		Feature: "appearance",
+		Errors: []int{ 400 , 401 , 403 },
+	} , handlers.setThemeShare , handlers.Guard.RequireLogin )
 	apidoc.Mount( app , "POST" , "/api/account/themes" , apidoc.Op{
 		Summary: "Replace your own themes",
 		Description: "Replace your whole list of color themes (1 to 40) and pick the one you use. themes: null goes back to following the app's defaults. A theme is the Theme schema in the API reference (config/api.json): id, name, mode light|dark, accent, second, and optional colors as #rrggbb.",
@@ -1125,6 +1139,13 @@ func ( handlers *Handlers ) mountDeclared( app *fiber.App ) {
 		Tag: "Projects",
 		Errors: []int{ 400 , 401 , 403 , 404 , 409 , 424 },
 	} , handlers.openProject , handlers.Guard.RequireLogin )
+	apidoc.Mount( app , "POST" , "/api/projects/{project_id}/opened" , apidoc.Op{
+		Summary: "Record opening a project",
+		Description: "Marks a project you are on as just opened, which puts it first in a list sorted by recently opened. It makes no login link: open_project does that.",
+		Tag: "Projects",
+		MCPHTTP: "Only orders the person's own list as their browser opens a project; an agent opens nothing.",
+		Errors: []int{ 400 , 401 , 403 , 404 , 409 },
+	} , handlers.markOpened , handlers.Guard.RequireLogin )
 	apidoc.Mount( app , "POST" , "/api/projects/{project_id}/own-key" , apidoc.Op{
 		Summary: "Use your own key on a project",
 		Description: "Keep an API key of yours on that project, and sign in with it from now on. On the project, switch on Sign-in links for that key (API keys card), or opening it will be refused.",
@@ -1735,6 +1756,11 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		Description: "Runs revoke_my_session once per item: items holds each call's arguments, shared the arguments they have in common (an item's own win). In order; one failing does not stop the rest, and the reply says how each went. At most 100 items.",
 		Destructive: true,
 	} ) )
+	server.Register( mcp.ForRoute( "POST /api/account/theme/send" , handlers.sendTheme , mcp.Tool{
+		Name: "send_theme_to_apps",
+		Title: "Send a theme to all your apps",
+		Description: "Puts the theme on your account in every app you are on and picks it there. Apps that cannot take a theme yet (no user_theme capability) are skipped; one app saying no does not stop the rest.",
+	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/account/shortcuts" , handlers.setMyShortcuts , mcp.Tool{
 		Name: "set_shortcuts",
 		Title: "Change your keyboard shortcuts",
@@ -1744,6 +1770,11 @@ func ( handlers *Handlers ) registerDeclaredTools( server *mcp.Server ) {
 		Name: "set_theme",
 		Title: "Pick your theme",
 		Description: "Switch to another theme from your list (or the defaults), by its id.",
+	} , nil ) )
+	server.Register( mcp.ForRoute( "POST /api/account/theme-share" , handlers.setThemeShare , mcp.Tool{
+		Name: "set_theme_share",
+		Title: "Use your theme in all your apps",
+		Description: "on true: whenever the theme you use changes, it is sent to every app you are on that takes it. The sending itself is POST /api/account/theme/send.",
 	} , nil ) )
 	server.Register( mcp.ForRoute( "POST /api/account/themes" , handlers.setMyThemes , mcp.Tool{
 		Name: "set_themes",

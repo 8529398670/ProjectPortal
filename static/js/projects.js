@@ -1,8 +1,10 @@
 // The Projects screen: every project you may use, as tiles. The ones you are
 // on come first (recently opened first, or by name) with an Open button, then the
-// ones you could join. Opening asks the portal for a fresh login link to that
-// project and goes there, which is how anyone signed out of a project gets
-// back in. app.js calls Projects.init( me ) once it knows who is signed in.
+// ones you could join. Open goes straight to the project's address; Sign in
+// asks the portal for a fresh login link to it, which is how anyone signed
+// out of a project gets back in. (The portal cannot see whether you are
+// signed in there: each app's cookie and headers keep it to that app.)
+// app.js calls Projects.init( me ) once it knows who is signed in.
 //
 // The list is small (a portal has tens of projects, not thousands), so it is
 // loaded whole and searched here, which keeps typing in the search box instant.
@@ -122,7 +124,7 @@ const Projects = {
       this.icon( project ),
       Dom.el( "div" , { class: "flex-grow-1 min-w-0" , children: [
         Dom.el( "h4" , { class: "h6 mb-1 text-break" , text: project.name } ),
-        Dom.el( "div" , { class: "small text-body-secondary text-break" , text: project.base_url.replace( /^https?:\/\// , "" ) } ),
+        this.address( project ),
       ] } ),
       this.health( project ),
     ].filter( Boolean ) } );
@@ -170,11 +172,39 @@ const Projects = {
     return [ join , this.boardLink( project ) , this.githubLink( project ) , extra ].filter( Boolean );
   },
 
+  // The project's address, as a link to it. A member's click counts as
+  // opening it, as Open does.
+  address( project ) {
+    const link = Dom.el( "a" , {
+      class: "small link-secondary text-break",
+      text: project.base_url.replace( /^https?:\/\// , "" ),
+      attrs: { href: project.base_url , target: "_blank" , rel: "noopener noreferrer" , title: I18n.get( "projects.address_hint" ) },
+    } );
+    if ( project.member ) this.onFollow( link , project );
+    return Dom.el( "div" , { children: [ link ] } );
+  },
+
+  // A plain link to the project opens it as the browser left it, usually
+  // still signed in; the portal only notes it for "recently opened". Plain
+  // links also let Cmd/Ctrl-click and middle-click open it in a background
+  // tab, which a page cannot do by itself.
+  onFollow( link , project ) {
+    const mark = () => { Api.markProjectOpened( project.id ).then( ( answer ) => this.replace( answer.project ) ).catch( () => {} ); };
+    link.addEventListener( "click" , mark );
+    link.addEventListener( "auxclick" , ( event ) => { if ( event.button === 1 ) mark(); } );
+  },
+
   memberActions( project ) {
-    const open = Dom.el( "button" , {
+    const open = Dom.el( "a" , {
       class: "btn btn-primary btn-sm",
-      attrs: { type: "button" , title: I18n.get( "projects.open_hint" ) },
+      attrs: { href: project.base_url , target: "_blank" , rel: "noopener noreferrer" , title: I18n.get( "projects.open_hint" ) },
       children: [ Dom.el( "i" , { class: "bi bi-box-arrow-up-right me-1" , attrs: { "aria-hidden": "true" } } ) , Dom.el( "span" , { text: I18n.get( "projects.open_button" ) } ) ],
+    } );
+    this.onFollow( open , project );
+    const signIn = Dom.el( "button" , {
+      class: "btn btn-outline-primary btn-sm",
+      attrs: { type: "button" , title: I18n.get( "projects.sign_in_hint" ) },
+      children: [ Dom.el( "i" , { class: "bi bi-box-arrow-in-right me-1" , attrs: { "aria-hidden": "true" } } ) , Dom.el( "span" , { text: I18n.get( "projects.sign_in_button" ) } ) ],
       on: { click: ( event ) => this.go( event , () => Api.openProject( project.id ) , true ) },
     } );
     const starLabel = I18n.get( project.favorite ? "projects.unstar" : "projects.star" );
@@ -194,7 +224,7 @@ const Projects = {
     ];
     const menu = Dom.rowMenu( project.name , items );
     menu.classList.add( "ms-auto" );
-    return [ open , this.boardLink( project ) , this.githubLink( project ) , star , menu ].filter( Boolean );
+    return [ open , signIn , this.boardLink( project ) , this.githubLink( project ) , star , menu ].filter( Boolean );
   },
 
   // The project's TodoBoard board, view only, when an admin gave its link.
